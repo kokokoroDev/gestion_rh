@@ -8,13 +8,13 @@ import { allowRoles } from '../middleware/role.js';
 
 const router = Router();
 
-// router.use(authenticate);
+router.use(authenticate);
 
 router.get('/', moduleController.getAllModules);
 router.get('/:id', moduleController.getModuleById);
 
-router.post('/' , validate(moduleSchema), moduleController.createModule);
-router.put('/:id' , validate(updateModuleSchema), moduleController.updateModule);
-router.delete('/:id' , moduleController.deleteModule);
+router.post('/' , allowRoles('rh') , validate(moduleSchema), moduleController.createModule);
+router.put('/:id' , allowRoles('rh') , validate(updateModuleSchema), moduleController.updateModule);
+router.delete('/:id' , allowRoles('rh') , moduleController.deleteModule);
 
 export default router;

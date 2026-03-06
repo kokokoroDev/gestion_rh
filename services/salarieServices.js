@@ -1,7 +1,7 @@
 import { Op } from "sequelize";
 import models from "../db/models/index.js";
 
-const { Salarie, Module, Conge, Bulpaie, CongeMessage } = models;
+const { Salarie, Module, Conge, Bulpaie } = models;
 
 export const getAllSalaries = async (filters = {}, limitations = {}) => {
   try {
@@ -68,8 +68,7 @@ export const getSalarieById = async (id, limitations = {}) => {
     { model: Module, as: 'module' },
     {
       model: Conge,
-      as: 'conges',
-      include: [{ model: CongeMessage, as: 'messages' }],
+      as: 'conges'
     },
     { model: Bulpaie, as: 'bulletins' },
   ];

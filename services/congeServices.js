@@ -1,13 +1,14 @@
-import { Op } from 'sequelize';
+import { Op  } from 'sequelize';
+import sequelizeCon from '../db/models/index.js';
 import models from '../db/models/index.js';
 import { buildAccessWhere, overlapCondition, countWorkingDays } from "../utils/conge.js";
 
-const { Conge, Salarie, CongeMessage, Module } = models;
+const { Conge, Salarie, Module } = models;
 
 
 
 export const soumettreConge = async (data, salarieId) => {
-    const { type_conge = 'vacance', date_debut, date_fin, message = null } = data;
+    const { type_conge = 'vacance', date_debut, date_fin, commentaire = null } = data;
     const debut = new Date(date_debut);
     const fin = new Date(date_fin);
     if (isNaN(debut) || isNaN(fin)) throw new Error('Dates invalides');
@@ -70,22 +71,16 @@ export const soumettreConge = async (data, salarieId) => {
         type_conge,
         date_debut,
         date_fin,
-        status: 'soumis',
+        status: salarie.role === 'manager' ? 'reached' : 'soumis',
+        commentaire
     });
-
-    if (message) {
-        const msg = await conge.create({
-            sal_id: salarieId,
-            cong_id: conge.id,
-            commentaire: message
-        })
-    }
 
     return { conge, warning: teamOverlapWarning };
 };
 
 export const getConges = async (filters = {}, salarieInfo) => {
     const { role, id: sal_id, module_id } = salarieInfo;
+    console.log(salarieInfo)
     const { limit = 10, offset = 0 } = filters;
 
     const where = await buildAccessWhere(salarieInfo, filters);
@@ -93,7 +88,7 @@ export const getConges = async (filters = {}, salarieInfo) => {
     const salarieInclude = {
         model: Salarie,
         as: 'salarie',
-        attributes: ['id', 'prenom', 'nom', 'role'],
+        attributes: ['id', 'prenom', 'nom', 'role', 'module_id'],
         include: [{ model: Module, as: 'module', attributes: ['id', 'libelle'] }],
     };
 
@@ -106,18 +101,7 @@ export const getConges = async (filters = {}, salarieInfo) => {
     const result = await Conge.findAndCountAll({
         where,
         include: [
-            salarieInclude,
-            {
-                model: CongeMessage,
-                as: 'messages',
-                include: [
-                    {
-                        model: Salarie,
-                        as: 'salarie',
-                        attributes: ['id', 'prenom', 'nom', 'role'],
-                    },
-                ],
-            },
+            salarieInclude
         ],
         order: [['date_debut', 'DESC']],
         limit: parseInt(limit),
@@ -138,19 +122,7 @@ export const getCongeById = async (id, salarieInfo) => {
                 as: 'salarie',
                 attributes: ['id', 'prenom', 'nom', 'role', 'module_id'],
                 include: [{ model: Module, as: 'module', attributes: ['id', 'libelle'] }],
-            },
-            {
-                model: CongeMessage,
-                as: 'messages',
-                include: [
-                    {
-                        model: Salarie,
-                        as: 'salarie',
-                        attributes: ['id', 'prenom', 'nom', 'role'],
-                    },
-                ],
-                order: [['create_at', 'ASC']],
-            },
+            }
         ],
     });
 
@@ -237,22 +209,13 @@ export const updateCongeStatus = async (id, newStatus, commentaire, salarieInfo)
 
     await conge.update({ status: newStatus });
 
-    if (commentaire) {
-        await CongeMessage.create({
-            sal_id: sal_id,
-            cong_id: id,
-            commentaire,
-        });
-    }
-
     return conge.reload({
         include: [
             {
                 model: Salarie,
                 as: 'salarie',
                 attributes: ['id', 'prenom', 'nom'],
-            },
-            { model: CongeMessage, as: 'messages' },
+            }
         ],
     });
 };

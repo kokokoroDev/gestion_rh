@@ -72,7 +72,7 @@ export const register = async (salarieData) => {
         include: [{ model: Module, as: 'module', attributes: { exclude: ['description'] } }]
     });
 
-    const token = generateToken({ id: salarie.id, role: salarie.role , module_id : salarie.modul_id });
+    const token = generateToken({ id: salarie.id, role: salarie.role , module_id : salarie.module_id });
 
     const salarieJson = sanitizeSalarie(salarieWithModule)
 

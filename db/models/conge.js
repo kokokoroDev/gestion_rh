@@ -18,9 +18,9 @@ const Conge = sequelizeCon.define('Conge', {
     },
     type_conge: {
         type: DataTypes.ENUM('maladie', 'vacance', 'maternite', 'paternite', 'sans_solde', 'exceptionnel', 'formation'),
-        defaultValue : 'vacance'
+        defaultValue: 'vacance'
     },
-    date_debut : {
+    date_debut: {
         type: DataTypes.DATEONLY,
         defaultValue: DataTypes.NOW,
     },
@@ -28,24 +28,23 @@ const Conge = sequelizeCon.define('Conge', {
         type: DataTypes.DATEONLY,
         allowNull: true
     },
-    status : {
-        type : DataTypes.ENUM('soumis', 'reached' , 'accepte' , 'refuse'),
-        defaultValue : 'soumis'
+    status: {
+        type: DataTypes.ENUM('soumis', 'reached', 'accepte', 'refuse'),
+        defaultValue: 'soumis'
+    },
+    commentaire: {
+        type: DataTypes.TEXT
     }
 },
-{
-    tableName : 'conge',
-    timestamps : false
-})
+    {
+        tableName: 'conge',
+        timestamps: false
+    })
 
 Conge.associate = (models) => {
     Conge.belongsTo(models.Salarie, {
-        foreignKey : 'sal_id',
-        as : 'salarie'
-    })
-    Conge.hasMany(models.CongeMessage, {
-        foreignKey: 'cong_id',
-        as : 'messages'
+        foreignKey: 'sal_id',
+        as: 'salarie'
     })
 }
 

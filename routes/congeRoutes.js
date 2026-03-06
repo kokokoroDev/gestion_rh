@@ -37,7 +37,7 @@ router.put(
 
 router.delete(
   '/:id',
-  allowRoles('fonctionnaire'),
+  allowRoles('fonctionnaire', 'manager', 'rh'),
   congeController.cancelConge
 );
 

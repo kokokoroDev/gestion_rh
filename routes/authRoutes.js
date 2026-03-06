@@ -18,9 +18,9 @@ const limiter = rateLimit({
 
 const router = Router();
 
-router.post('/register', limiter, validate(registerSchema), register);
-router.post('/login',  limiter ,validate(loginSchema), login);
-router.post('/refresh-token',limiter ,  validate(refreshTokenSchema), refreshToken);
+router.post('/register', validate(registerSchema), register);
+router.post('/login',validate(loginSchema), login);
+router.post('/refresh-token' ,  validate(refreshTokenSchema), refreshToken);
 
 router.post('/change-password', authenticate, validate(changePasswordSchema), changePassword);
 
