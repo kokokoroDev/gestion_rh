@@ -53,6 +53,10 @@ const Bulpaie = sequelizeCon.define(
         status : {
             type : DataTypes.ENUM('drafted' , 'validated'),
             defaultValue : 'drafted'
+        },
+        file_path : {
+            type : DataTypes.TEXT,
+            allowNull : true
         }
     },
     {

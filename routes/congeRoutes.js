@@ -25,6 +25,8 @@ router.get(
   congeController.getConges
 );
 
+router.get('/calendar', validate(calendarSchema, 'query'), congeController.getCalendar);
+
 router.get('/:id', congeController.getCongeById);
 
 

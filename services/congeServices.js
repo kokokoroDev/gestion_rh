@@ -1,5 +1,4 @@
 import { Op  } from 'sequelize';
-import sequelizeCon from '../db/models/index.js';
 import models from '../db/models/index.js';
 import { buildAccessWhere, overlapCondition, countWorkingDays } from "../utils/conge.js";
 
@@ -164,12 +163,12 @@ export const updateCongeStatus = async (id, newStatus, commentaire, salarieInfo)
 
     const allowed = {
         manager: {
-            reached: ['soumis'],           // manager acknowledges
-            refuse: ['soumis', 'reached'], // manager refuses
+            reached: ['soumis'],
+            refuse: ['soumis', 'reached'], 
         },
         rh: {
-            accepte: ['soumis', 'reached'], // rh approves
-            refuse: ['soumis', 'reached', 'accepte'], // rh can refuse even after approval
+            accepte: ['soumis', 'reached'], 
+            refuse: ['soumis', 'reached', 'accepte'],
         },
     };
 
@@ -225,10 +224,71 @@ export const cancelConge = async (id, salarieId) => {
     const conge = await Conge.findByPk(id);
     if (!conge) throw new Error('Congé non trouvé');
     if (conge.sal_id !== salarieId) throw new Error('Accès refusé');
-    if (conge.status !== 'soumis') {
-        throw new Error('Seules les demandes en statut "soumis" peuvent être annulées');
+    const cancellableStatuses = ['soumis', 'reached'];
+    if (!cancellableStatuses.includes(conge.status)) {
+        throw new Error('Seules les demandes en attente (soumis/reached) peuvent être annulées');
     }
 
     await conge.destroy();
     return true;
+};
+
+export const getCalendar = async (filters, salarieInfo) => {
+    const { date_from, date_to, module_id: filterModule } = filters;
+    const { role, module_id: userModule } = salarieInfo;
+
+    if (!date_from || !date_to) throw new Error('date_from et date_to sont requis');
+
+    const debut = new Date(date_from);
+    const fin = new Date(date_to);
+    if (isNaN(debut) || isNaN(fin)) throw new Error('Dates invalides');
+    if (fin < debut) throw new Error('date_to doit être après date_from');
+
+    const targetModule = role === 'rh'
+        ? (filterModule || null)  
+        : userModule;        
+
+    const salarieWhere = { status: 'active' };
+    if (targetModule) salarieWhere.module_id = targetModule;
+
+    const conges = await Conge.findAll({
+        where: {
+            status: 'accepte',
+            date_debut: { [Op.lte]: date_to },
+            date_fin: { [Op.gte]: date_from },
+        },
+        include: [{
+            model: Salarie,
+            as: 'salarie',
+            attributes: ['id', 'prenom', 'nom', 'module_id'],
+            where: salarieWhere,
+            include: [{ model: Module, as: 'module', attributes: ['id', 'libelle'] }],
+            required: true,
+        }],
+        attributes: ['id', 'date_debut', 'date_fin', 'type_conge'],
+        order: [['date_debut', 'ASC']],
+    });
+
+    const byModule = {};
+    for (const conge of conges) {
+        const mod = conge.salarie.module;
+        const key = mod ? mod.id : 'sans_module';
+        const label = mod ? mod.libelle : 'Sans module';
+
+        if (!byModule[key]) byModule[key] = { module: label, absences: [] };
+
+        byModule[key].absences.push({
+            sal_id: conge.salarie.id,
+            nom: `${conge.salarie.prenom} ${conge.salarie.nom}`,
+            date_debut: conge.date_debut,
+            date_fin: conge.date_fin,
+            type_conge: conge.type_conge,
+            jours: countWorkingDays(new Date(conge.date_debut), new Date(conge.date_fin)),
+        });
+    }
+
+    return {
+        range: { from: date_from, to: date_to },
+        modules: Object.values(byModule),
+    };
 };

@@ -53,3 +53,12 @@ export const cancelConge = async (req, res) => {
         res.status(code).json({ message: error.message });
     }
 };
+
+export const getCalendar = async (req, res) => {
+    try {
+        const result = await congeService.getCalendar(req.query, req.salarie);
+        res.json(result);
+    } catch (error) {
+        res.status(400).json({ message: error.message });
+    }
+};

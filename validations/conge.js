@@ -29,3 +29,9 @@ export const listCongesSchema = Joi.object({
     limit: Joi.number().integer().min(1).max(100).default(10),
     offset: Joi.number().integer().min(0).default(0),
 });
+
+export const calendarSchema = Joi.object({
+    date_from: Joi.date().required(),
+    date_to: Joi.date().min(Joi.ref('date_from')).required(),
+    module_id: Joi.string().uuid().optional(),
+});

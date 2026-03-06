@@ -1,6 +1,5 @@
 import { Op } from "sequelize";
 
-
 export const countWorkingDays = (start, end) => {
   let count = 0;
   const current = new Date(start);
@@ -18,20 +17,20 @@ export const overlapCondition = (date_debut, date_fin) => ({
   date_fin: { [Op.gte]: date_debut },
 });
 
-
 export const buildAccessWhere = async (salarieInfo, extraFilters = {}) => {
-  const { role, id: sal_id, module_id } = salarieInfo;
+  const { role, id: sal_id } = salarieInfo;
   const where = {};
 
   if (role === 'fonctionnaire') {
     where.sal_id = sal_id;
-  } else if (role === 'manager') {
-    if (!module_id) throw new Error("Vous n'êtes pas associé à un module");
+  } else if (role === 'rh') {
+    where.status = extraFilters.status || 'reached';
   }
 
-  if (extraFilters.status) where.status = extraFilters.status;
+  if (extraFilters.status && role !== 'rh') where.status = extraFilters.status;
   if (extraFilters.type_conge) where.type_conge = extraFilters.type_conge;
   if (extraFilters.sal_id && role !== 'fonctionnaire') where.sal_id = extraFilters.sal_id;
+
   if (extraFilters.date_from || extraFilters.date_to) {
     where.date_debut = {};
     if (extraFilters.date_from) where.date_debut[Op.gte] = extraFilters.date_from;

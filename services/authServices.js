@@ -32,7 +32,7 @@ export const refreshToken = async (oldToken) => {
         const salarie = await Salarie.findByPk(decoded.id);
         if (!salarie || salarie.status === 'inactive') throw new Error('Utilisateur invalide');
 
-        return generateToken({ id: salarie.id, role: salarie.role , module_id : salarie.modul_id });
+        return generateToken({ id: salarie.id, role: salarie.role , module_id : salarie.module_id });
     } catch (error) {
         console.error('Refresh token error:', error);
         throw new Error('Token invalide ou expiré');
