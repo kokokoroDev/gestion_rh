@@ -22,7 +22,7 @@ router.get(
   salarieController.getAllSalaries
 );
 
-router.get('/team', allowRoles('manager'), salarieController.getAllSalaries);
+router.get('/team', allowRoles('manager'), salarieController.getManagerTeam);
 
 
 router.get('/:id', allowRoles('rh', 'manager'), salarieController.getSalarieById);

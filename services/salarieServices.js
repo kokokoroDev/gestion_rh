@@ -1,17 +1,17 @@
-import { Op, where } from "sequelize";
+import { Op } from "sequelize";
 import models from "../db/models/index.js";
 
+const { Salarie, Module, Conge, Bulpaie, CongeMessage } = models;
 
-const { Salarie, Module, Conge, Bulpaie, CongeMessage } = models
 export const getAllSalaries = async (filters = {}, limitations = {}) => {
   try {
     const { role: salarieRole, sal_id: searcherId } = limitations;
     const { module_id, role, status, search, limit = 10, offset = 0 } = filters;
     const where = {};
-    const include = []
+    const include = [];
 
-    if (role === 'rh') {
-      include.push({ model: Module, as: 'module' })
+    if (salarieRole === 'rh') {
+      include.push({ model: Module, as: 'module' });
     }
 
     if (salarieRole === 'manager') {
@@ -20,10 +20,13 @@ export const getAllSalaries = async (filters = {}, limitations = {}) => {
       where.module_id = module_id;
     }
 
-    where.role = { [Op.ne]: 'rh' }
+    where.role = { [Op.ne]: 'rh' };
+    if (role && role !== 'rh') {
+      where.role = role;
+    }
 
-    if (role) where.role = role;
-    where.status = status || 'active'
+    where.status = status || 'active';
+
     if (search) {
       where[Op.or] = [
         { prenom: { [Op.like]: `%${search}%` } },
@@ -32,55 +35,84 @@ export const getAllSalaries = async (filters = {}, limitations = {}) => {
         { cin: { [Op.like]: `%${search}%` } },
       ];
     }
-    where.id = { [Op.ne]: searcherId }
+
+    where.id = { [Op.ne]: searcherId };
+
+    const excludeAttrs = ['password', 'deleted_at'];
+    if (salarieRole === 'manager') {
+      excludeAttrs.push('email', 'cin');
+    }
 
     const salaries = await Salarie.findAndCountAll({
       where,
       limit: parseInt(limit),
       offset: parseInt(offset),
-      attributes: {
-        exclude: ['module_id', 'status', 'password', 'create_at', 'updated_at', 'deleted_at', 'module_id', 'date_debut', 'email', 'cin', 'id', 'role', 'date_fin']
-      },
+      attributes: { exclude: excludeAttrs },
       include,
       order: [['nom', 'ASC']],
-      distinct: true
+      distinct: true,
     });
 
     return {
       total: salaries.count,
       data: salaries.rows,
-    }
+    };
   } catch (error) {
     return { error: error.message };
   }
 };
 
+
 export const getSalarieById = async (id, limitations = {}) => {
   const include = [
     { model: Module, as: 'module' },
-    { model: Conge, as: 'conges', include: [{ model: CongeMessage, as: 'messages' }] },
+    {
+      model: Conge,
+      as: 'conges',
+      include: [{ model: CongeMessage, as: 'messages' }],
+    },
     { model: Bulpaie, as: 'bulletins' },
   ];
-  let where = {}
+
+  const whereClause = { id };
+
   if (limitations?.role === 'manager') {
-    if (limitations?.module_id) {
-      where.module_id = limitations.module_id
-    } else {
-      throw new Error('Module id est requis')
-    }
+    if (!limitations?.module_id) throw new Error('Module id est requis');
+    whereClause.module_id = limitations.module_id;
   }
 
-  return await Salarie.findByPk(id, {
-    where, include,
-    attributes: {
-      exclude: ['module_id', 'status', 'password', 'create_at', 'updated_at', 'deleted_at', 'module_id', 'date_debut', 'email', 'cin', 'id', 'role', 'date_fin']
-    }
+  const salarie = await Salarie.findOne({
+    where: whereClause,
+    include,
+    attributes: { exclude: ['password', 'deleted_at'] },
+  });
+
+  if (!salarie) throw new Error('Salarié non trouvé ou accès refusé');
+  return salarie;
+};
+
+export const getManagerTeam = async (managerId) => {
+  const manager = await Salarie.findByPk(managerId);
+  if (!manager || !manager.module_id) {
+    throw new Error("Vous n'êtes pas associé à un module");
+  }
+
+  return await Salarie.findAll({
+    where: {
+      module_id: manager.module_id,
+      id: { [Op.ne]: managerId },
+      status: 'active',
+      role: { [Op.ne]: 'rh' },
+    },
+    attributes: { exclude: ['password', 'deleted_at'] },
+    include: [{ model: Module, as: 'module' }],
+    order: [['nom', 'ASC']],
   });
 };
 
 export const deleteSalarie = async (id) => {
   const salarie = await Salarie.findByPk(id);
-  if (!salarie) new Error('Salarié non trouvé');
+  if (!salarie) throw new Error('Salarié non trouvé');
   await salarie.destroy();
   return true;
 };
@@ -112,7 +144,7 @@ export const updateSalarie = async (id, data) => {
 
 export const createSalarie = async (data, userInfo) => {
   const { email, cin, module_id } = data;
-  const { role, man_id , man_module } = userInfo;
+  const { role, man_module } = userInfo;
 
   const existing = await Salarie.findOne({
     where: { [Op.or]: [{ email }, { cin }] },
