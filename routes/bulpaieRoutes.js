@@ -6,8 +6,7 @@ import {
     createBulpaieSchema,
     updateBulpaieSchema,
     listBulpaiesSchema,
-    batchValidateSchema,
-    masseSalarialeSchema,
+    batchValidateSchema
 } from '../validations/bulpaie.js';
 import * as bulpaieController from '../controllers/bulpaieController.js';
 

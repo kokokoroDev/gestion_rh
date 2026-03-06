@@ -6,6 +6,7 @@ import {
   createCongeSchema,
   updateCongeStatusSchema,
   listCongesSchema,
+  calendarSchema
 } from '../validations/conge.js';
 import * as congeController from '../controllers/congeController.js';
 
