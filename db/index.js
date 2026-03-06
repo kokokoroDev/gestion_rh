@@ -12,7 +12,6 @@ export const test = async () => {
 
 export const testandsync = async () => {
     try {
-        await testandsync()
         await sequelizeCon.sync({ alter: true })
         console.log('db is synced')
     } catch {

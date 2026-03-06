@@ -55,6 +55,13 @@ const Salarie = sequelizeCon.define('Salarie',
     status : {
         type : DataTypes.ENUM('active' , 'inactive'),
         defaultValue : 'active'
+    },
+    password : {
+        type : DataTypes.STRING,
+        allowNull : false,
+        validate : {
+            'len' : [6,100]
+        }
     }
 },{
     tableName : 'salarie',
