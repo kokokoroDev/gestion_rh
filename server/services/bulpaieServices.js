@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import models from '../db/models/index.js';
 import { computeNet, checkAccess, buildSalarieInclude } from '../utils/bulpaie.js';
+import { generatePayslipPDF } from '../utils/generateBulpaie.js';
 
 const { Bulpaie, Salarie, Module } = models;
 
