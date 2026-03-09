@@ -1,0 +1,78 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    @apply box-border;
+  }
+
+  html {
+    @apply antialiased scroll-smooth;
+  }
+
+  body {
+    @apply bg-surface-50 text-surface-800 font-sans;
+  }
+
+  /* Scrollbar styling */
+  ::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-surface-300 rounded-full;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-surface-400;
+  }
+
+  /* Sidebar scrollbar */
+  .sidebar-scroll::-webkit-scrollbar-thumb {
+    @apply bg-navy-600;
+  }
+}
+
+@layer components {
+  /* ── Input base ── */
+  .input-base {
+    @apply w-full rounded-xl border border-surface-200 bg-white px-4 py-2.5
+           text-sm text-surface-800 placeholder-surface-400
+           transition-all duration-150
+           focus:outline-none focus:ring-2 focus:ring-azure-500/30 focus:border-azure-500
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  /* ── Button variants ── */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl
+           px-4 py-2.5 text-sm font-medium
+           transition-all duration-150 active:scale-[.98]
+           disabled:opacity-50 disabled:pointer-events-none;
+  }
+  .btn-primary {
+    @apply btn bg-azure-600 text-white hover:bg-azure-700 shadow-sm;
+  }
+  .btn-secondary {
+    @apply btn bg-surface-100 text-surface-700 hover:bg-surface-200;
+  }
+  .btn-ghost {
+    @apply btn text-surface-600 hover:bg-surface-100;
+  }
+  .btn-danger {
+    @apply btn bg-rose-500 text-white hover:bg-rose-600 shadow-sm;
+  }
+
+  /* ── Card ── */
+  .card {
+    @apply bg-white rounded-2xl shadow-card border border-surface-100 p-6;
+  }
+
+  /* ── Badge ── */
+  .badge {
+    @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+}
