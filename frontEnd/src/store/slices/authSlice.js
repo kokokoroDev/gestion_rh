@@ -63,15 +63,25 @@ const authSlice = createSlice({
     // ── Login ──
     builder
       .addCase(loginThunk.pending, (state) => {
+        state.salarie = null
+        state.token = null
+        localStorage.removeItem('token')
+        localStorage.removeItem('salarie')
         state.loading = true
         state.error   = null
       })
       .addCase(loginThunk.fulfilled, (state, { payload }) => {
         state.loading = false
-        state.salarie = payload.salarie
-        state.token   = payload.token
-        localStorage.setItem('token',   payload.token)
-        localStorage.setItem('salarie', JSON.stringify(payload.salarie))
+        if(payload?.salarie && payload?.token){
+          console.log('ana hna')
+          state.salarie = payload.salarie
+          state.token   = payload.token
+          localStorage.setItem('token',   payload.token)
+          localStorage.setItem('salarie', JSON.stringify(payload.salarie))
+        }else{
+          state.error = payload
+        }
+
       })
       .addCase(loginThunk.rejected, (state, { payload }) => {
         state.loading = false

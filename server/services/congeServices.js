@@ -138,7 +138,7 @@ export const getCongeById = async (id, salarieInfo) => {
     return conge;
 };
 
-export const updateCongeStatus = async (id, newStatus, commentaire, salarieInfo) => {
+export const updateCongeStatus = async (id, newStatus, salarieInfo) => {
     const { role, id: sal_id, module_id } = salarieInfo;
 
     const conge = await Conge.findByPk(id, {

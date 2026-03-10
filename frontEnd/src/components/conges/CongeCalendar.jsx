@@ -23,12 +23,11 @@ export default function CongeCalendar() {
 
   const [range, setRange] = useState({ from: firstDayOfMonth(), to: lastDayOfMonth() })
 
+
   useEffect(() => {
     const params = {
       date_from: range.from,
       date_to:   range.to,
-      // Non-RH users are scoped to their module on the backend automatically,
-      // but we pass module_id explicitly so RH can also filter if needed.
       ...(!isRH && salarie?.module_id ? { module_id: salarie.module_id } : {}),
     }
     dispatch(fetchCalendar(params))
@@ -96,7 +95,7 @@ export default function CongeCalendar() {
                 <tbody className="divide-y divide-surface-50">
                   {mod.absences.map((a, i) => (
                     <tr key={i} className="hover:bg-surface-50 transition-colors">
-                      <td className="py-2.5 pr-4 font-medium text-surface-800">{a.nom}</td>
+                      <td className="py-2.5 pr-4 font-medium text-surface-800">{a.sal_id === salarie.id ? 'Moi' : a.nom}</td>
                       <td className="py-2.5 pr-4 text-surface-500">
                         {CONGE_TYPE_LABELS[a.type_conge] ?? a.type_conge}
                       </td>

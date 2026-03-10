@@ -1,7 +1,21 @@
-import { Op } from "sequelize";
+import { Op, where } from "sequelize";
 import models from "../db/models/index.js";
+import { comparePassword, hashPassword } from "../utils/auth.js";
 
 const { Salarie, Module, Conge, Bulpaie } = models;
+
+
+const assureUniqueManager = async (module_id) => {
+  if (!module_id) return;                          // exit only when there's NO module
+
+  const currentManager = await Salarie.findOne({
+    where: { module_id, role: 'manager' },
+  });
+
+  if (!currentManager) return;
+
+  await currentManager.update({ role: 'fonctionnaire' });
+}
 
 export const getAllSalaries = async (filters = {}, limitations = {}) => {
   try {
@@ -120,7 +134,7 @@ export const updateSalarie = async (id, data) => {
   const salarie = await Salarie.findByPk(id);
   if (!salarie) throw new Error('Salarié non trouvé');
 
-  const { email, cin, module_id } = data;
+  const { email, cin, module_id, password, changeManager = false , role : instanceRole } = data;
 
   if (email && email !== salarie.email) {
     const existingEmail = await Salarie.findOne({ where: { email } });
@@ -132,6 +146,18 @@ export const updateSalarie = async (id, data) => {
     if (existingCin) throw new Error('Ce CIN est déjà utilisé');
   }
 
+  if (password && !await comparePassword(password, salarie.password)) {
+    const newPassword = await hashPassword(password)
+    data['password'] = newPassword
+  }
+
+  let lastRole = instanceRole
+  if (instanceRole === 'manager' && changeManager) {
+    await assureUniqueManager(module_id)
+  } else if (instanceRole === 'manager' && !changeManager) {
+    lastRole = 'fonctionnaire'
+  }
+
   if (module_id && module_id !== salarie.module_id) {
     const moduleExists = await Module.findByPk(module_id);
     if (!moduleExists) throw new Error('Module non trouvé');
@@ -141,9 +167,10 @@ export const updateSalarie = async (id, data) => {
   return salarie;
 };
 
-export const createSalarie = async (data, userInfo) => {
-  const { email, cin, module_id } = data;
-  const { role, man_module } = userInfo;
+export const createSalarie = async (data, salarieInfo) => {
+  const { email, cin, module_id, changeManager = false, role: instanceRole } = data;
+  const { role, man_module } = salarieInfo;
+
 
   const existing = await Salarie.findOne({
     where: { [Op.or]: [{ email }, { cin }] },
@@ -170,8 +197,19 @@ export const createSalarie = async (data, userInfo) => {
     if (!moduleExists) throw new Error('Module non trouvé');
   }
 
+  let lastRole = instanceRole
+  if (instanceRole === 'manager' && changeManager) {
+    await assureUniqueManager(finalModuleId)
+  } else if (instanceRole === 'manager' && !changeManager) {
+    lastRole = 'fonctionnaire'
+  }
+
+  const password = await hashPassword(data.password)
+
   const salarie = await Salarie.create({
     ...data,
+    role: lastRole,
+    password,
     module_id: finalModuleId,
   });
 

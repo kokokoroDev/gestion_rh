@@ -12,6 +12,7 @@ export const createSalarieSchema = Joi.object({
   role: Joi.string().valid('rh', 'manager', 'fonctionnaire').default('fonctionnaire'),
   module_id: Joi.string().uuid().optional(),
   status: Joi.string().valid('active', 'inactive').default('active'),
+  changeManager : Joi.boolean().optional().default(false)
 });
 
 export const updateSalarieSchema = Joi.object({
@@ -26,6 +27,7 @@ export const updateSalarieSchema = Joi.object({
   role: Joi.string().valid('rh', 'manager', 'fonctionnaire').optional(),
   module_id: Joi.string().uuid().optional(),
   status: Joi.string().valid('active', 'inactive').optional(),
+  changeManager : Joi.boolean().optional().default(false)
 }).min(1); 
 
 export const listSalariesSchema = Joi.object({

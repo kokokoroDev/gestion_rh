@@ -31,11 +31,10 @@ export const getCongeById = async (req, res) => {
 
 export const updateCongeStatus = async (req, res) => {
     try {
-        const { status, commentaire } = req.body;
+        const { status } = req.body;
         const conge = await congeService.updateCongeStatus(
             req.params.id,
             status,
-            commentaire,
             req.salarie
         );
         res.json(conge);

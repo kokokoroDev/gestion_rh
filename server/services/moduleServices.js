@@ -11,6 +11,16 @@ export const getAllModules = async (options = {}) => {
     });
 };
 
+export const checkManager = async (id) => {
+    const managerCount = await Salarie.count({where : {
+        'role' : 'manager',
+        'module_id' : id
+    }})
+    if(managerCount > 0) {
+        return {manager : true}
+    }
+    return {manager : false}
+}
 
 export const getModuleById = async (id) => {
     const module = await Module.findByPk(id);

@@ -98,9 +98,9 @@ export default function Conges() {
 
         <div className="flex-1" />
 
-        {isFonctionnaire && salarie?.mon_cong !== undefined && (
+        {salarie?.mon_cong !== undefined && (
           <div className="px-3 py-1.5 bg-emerald-50 border border-emerald-200 rounded-xl text-sm font-medium text-emerald-700">
-            Solde : {salarie.mon_cong} jour{salarie.mon_cong !== 1 ? 's' : ''}
+            Solde : {salarie.mon_cong} jour{salarie.mon_cong > 1 ? 's' : ''}
           </div>
         )}
 

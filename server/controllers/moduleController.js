@@ -18,6 +18,15 @@ export const getModuleById = async (req, res) => {
   }
 };
 
+export const checkManager = async (req , res) => {
+  try{
+    const manager = await moduleService.checkManager(req.params.id);
+    res.json(manager);
+  }catch(error){
+    res.status(404).json({message : error.message})
+  }
+}
+
 export const createModule = async (req, res) => {
   try {
     const module = await moduleService.createModule(req.body);

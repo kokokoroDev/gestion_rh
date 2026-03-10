@@ -13,7 +13,6 @@ export const updateCongeStatusSchema = Joi.object({
     status: Joi.string()
         .valid('reached', 'accepte', 'refuse')
         .required(),
-    commentaire: Joi.string().max(500).optional(),
 })
 
 export const listCongesSchema = Joi.object({

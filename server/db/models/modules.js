@@ -31,7 +31,7 @@ Module.associate = (models) => {
     Module.hasMany(models.Salarie, {
         foreignKey: 'module_id',
         as: 'salarie'
-    })  
+    })
 }
 
 export default Module
