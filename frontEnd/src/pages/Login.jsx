@@ -21,10 +21,9 @@ export default function Login() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     const result = await dispatch(loginThunk({ email: form.email, password: form.password }))
-    console.log(result)
-    // if (loginThunk.fulfilled.match(result)) {
-    //   navigate('/dashboard')
-    // }
+    if (loginThunk.fulfilled.match(result)) {
+      navigate('/dashboard')
+    }
   }
 
   return (

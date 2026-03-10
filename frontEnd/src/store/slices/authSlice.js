@@ -7,9 +7,12 @@ export const loginThunk = createAsyncThunk(
   async ({ email, password }, { rejectWithValue }) => {
     try {
       const { data } = await authApi.login(email, password)
+      if (!data?.token || !data?.salarie) {
+        return rejectWithValue(data?.message ?? 'Identifiants incorrects')
+      }
       return data
     } catch (err) {
-      return rejectWithValue(err.response?.data?.message ?? 'Erreur de connexion')
+      return rejectWithValue(err.response?.data?.message ?? 'Identifiants incorrects')
     }
   }
 )
@@ -72,16 +75,10 @@ const authSlice = createSlice({
       })
       .addCase(loginThunk.fulfilled, (state, { payload }) => {
         state.loading = false
-        if(payload?.salarie && payload?.token){
-          console.log('ana hna')
-          state.salarie = payload.salarie
-          state.token   = payload.token
-          localStorage.setItem('token',   payload.token)
-          localStorage.setItem('salarie', JSON.stringify(payload.salarie))
-        }else{
-          state.error = payload
-        }
-
+        state.salarie = payload.salarie
+        state.token   = payload.token
+        localStorage.setItem('token',   payload.token)
+        localStorage.setItem('salarie', JSON.stringify(payload.salarie))
       })
       .addCase(loginThunk.rejected, (state, { payload }) => {
         state.loading = false

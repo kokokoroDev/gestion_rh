@@ -1,22 +1,13 @@
 import api from './axios.api'
 
 export const congeApi = {
-  // List with filters: { status, type_conge, sal_id, date_from, date_to, limit, offset }
-  getAll: (params = {}) =>
-    api.get('/conge', { params }),
+  soumettre: (data) => api.post('/conge', data),
 
-  getById: (id) =>
-    api.get(`/conge/${id}`),
+  getAll: (params) => api.get('/conge', { params }),
 
-  create: (data) =>
-    api.post('/conge', data),
+  getCalendar: (params) => api.get('/conge/calendar', { params }),
 
-  updateStatus: (id, status, commentaire) =>
-    api.put(`/conge/${id}/status`, { status, commentaire }),
+  updateStatus: (id, status) => api.put(`/conge/${id}/status`, { status }),
 
-  cancel: (id) =>
-    api.delete(`/conge/${id}`),
-
-  getCalendar: (params) =>
-    api.get('/conge/calendar', { params }),
+  cancel: (id) => api.delete(`/conge/${id}`),
 }

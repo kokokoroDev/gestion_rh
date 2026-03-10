@@ -26,15 +26,22 @@ const processQueue = (error, token = null) => {
   failedQueue = []
 }
 
+// Auth endpoints that should NEVER trigger the refresh/logout logic
+const AUTH_URLS = ['/auth/login', '/auth/register', '/auth/refresh-token']
+
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const original = error.config
 
+    // Skip interceptor for auth endpoints — let the thunk handle errors directly
+    if (AUTH_URLS.some((url) => original.url?.includes(url))) {
+      return Promise.reject(error)
+    }
+
     // 401 and not already retried
     if (error.response?.status === 401 && !original._retry) {
       if (isRefreshing) {
-        // Queue concurrent requests while refreshing
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject })
         })
