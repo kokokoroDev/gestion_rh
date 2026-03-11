@@ -26,6 +26,5 @@ export const paieApi = {
   // Returns a blob — use for <a download> or window.open
   download: (id) =>
 
-    
     api.get(`/paie/${id}/download`, { responseType: 'blob' }),
 }

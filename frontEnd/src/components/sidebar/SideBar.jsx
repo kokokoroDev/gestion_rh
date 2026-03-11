@@ -45,7 +45,7 @@ function NavItem({ to, icon, label, end = false }) {
         transition-all duration-150 group
         ${isActive
           ? 'bg-azure-600 text-white shadow-glow'
-          : 'text-navy-200 hover:bg-navy-700/60 hover:text-white'
+          : 'text-slate-300 hover:bg-white/10 hover:text-white'
         }
       `}
     >
@@ -83,14 +83,14 @@ export default function Sidebar({ mobile = false, onClose }) {
         </div>
         <div>
           <p className="text-sm font-semibold text-white leading-none">Skatys</p>
-          <p className="text-xs text-navy-400 mt-0.5">Espace personnelle</p>
+          <p className="text-xs text-slate-400 mt-0.5">Espace personnelle</p>
         </div>
 
         {/* Mobile close */}
         {mobile && (
           <button
             onClick={onClose}
-            className="ml-auto text-navy-400 hover:text-white transition-colors"
+            className="ml-auto text-slate-400 hover:text-white transition-colors"
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -101,7 +101,7 @@ export default function Sidebar({ mobile = false, onClose }) {
 
       {/* Navigation */}
       <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto sidebar-scroll">
-        <p className="px-3 mb-2 text-xs font-semibold text-navy-500 uppercase tracking-wider">
+        <p className="px-3 mb-2 text-xs font-semibold text-slate-500 uppercase tracking-wider">
           Menu principal
         </p>
         {nav.map((item) => (
@@ -122,14 +122,14 @@ export default function Sidebar({ mobile = false, onClose }) {
             <p className="text-sm font-medium text-white truncate">
               {salarie?.prenom} {salarie?.nom}
             </p>
-            <p className="text-xs text-navy-400 truncate">
+            <p className="text-xs text-slate-400 truncate">
               {ROLE_LABELS[salarie?.role] ?? salarie?.role}
             </p>
           </div>
           <button
             onClick={logout}
             title="Déconnexion"
-            className="text-navy-500 hover:text-rose-400 transition-colors"
+            className="text-slate-500 hover:text-rose-400 transition-colors"
           >
             <IconLogout />
           </button>

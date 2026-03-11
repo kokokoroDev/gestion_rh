@@ -1,13 +1,10 @@
 import axios from 'axios'
-
-// ─── Instance ─────────────────────────────────────────────────────────────────
 const api = axios.create({
   baseURL: '/api',
   headers: { 'Content-Type': 'application/json' },
   timeout: 15_000,
 })
 
-// ─── Request — inject token ───────────────────────────────────────────────────
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token')
@@ -17,7 +14,6 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 )
 
-// ─── Response — auto-refresh on 401 ──────────────────────────────────────────
 let isRefreshing = false
 let failedQueue  = []
 
@@ -26,15 +22,19 @@ const processQueue = (error, token = null) => {
   failedQueue = []
 }
 
+const AUTH_URLS = ['/auth/login', '/auth/register', '/auth/refresh-token']
+
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const original = error.config
 
-    // 401 and not already retried
+    if (AUTH_URLS.some((url) => original.url?.includes(url))) {
+      return Promise.reject(error)
+    }
+
     if (error.response?.status === 401 && !original._retry) {
       if (isRefreshing) {
-        // Queue concurrent requests while refreshing
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject })
         })

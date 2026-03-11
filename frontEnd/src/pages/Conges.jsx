@@ -4,6 +4,7 @@ import {
   fetchConges, cancelConge,
   selectConges, selectCongeTotal, selectCongeLoading, selectCongeSubmitting
 } from '@/store/slices/congeSlice'
+import { congeApi } from '@/api/conge.api'
 import { useAuth } from '@/hooks/useAuth'
 import { useToast } from '@/hooks/useToast'
 import Badge from '@/components/ui/Badge'
@@ -27,6 +28,70 @@ const STATUSES = [
   { value: 'refuse',   label: 'Refusé' },
 ]
 
+// ─── Status progress bar ───────────────────────────────────────────────────────
+const STATUS_STEPS = ['soumis', 'reached', 'accepte']
+
+function CongeProgressBar({ status }) {
+  if (status === 'refuse') {
+    return (
+      <div className="flex items-center gap-2 mt-2">
+        <div className="flex-1 h-1 rounded-full bg-rose-200" />
+        <span className="text-xs font-medium text-rose-600 flex-shrink-0">Refusé</span>
+      </div>
+    )
+  }
+
+  const currentIdx = STATUS_STEPS.indexOf(status)
+
+  return (
+    <div className="mt-2.5">
+      <div className="flex items-center">
+        {STATUS_STEPS.map((step, i) => {
+          const done    = i <= currentIdx
+          const isLast  = i === STATUS_STEPS.length - 1
+          const labels  = { soumis: 'Soumis', reached: 'Chez RH', accepte: 'Accepté' }
+          return (
+            <div key={step} className="flex items-center flex-1">
+              <div className="flex flex-col items-center flex-shrink-0">
+                <div className={`
+                  w-4 h-4 rounded-full border-2 flex items-center justify-center transition-all
+                  ${done
+                    ? isLast
+                      ? 'border-emerald-500 bg-emerald-500'
+                      : i === currentIdx
+                        ? 'border-azure-500 bg-azure-500 ring-2 ring-azure-200'
+                        : 'border-azure-400 bg-azure-400'
+                    : 'border-surface-300 bg-white'
+                  }
+                `}>
+                  {done && (
+                    <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                  )}
+                </div>
+                <span className={`text-[10px] mt-0.5 font-medium whitespace-nowrap
+                  ${done
+                    ? isLast ? 'text-emerald-600' : 'text-azure-600'
+                    : 'text-surface-400'
+                  }`}>
+                  {labels[step]}
+                </span>
+              </div>
+              {i < STATUS_STEPS.length - 1 && (
+                <div className={`flex-1 h-0.5 mb-3.5 mx-0.5 rounded-full transition-all
+                  ${i < currentIdx ? 'bg-azure-400' : 'bg-surface-200'}`}
+                />
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+// ─── Avatar ────────────────────────────────────────────────────────────────────
 function Avatar({ prenom = '', nom = '' }) {
   return (
     <div className="w-8 h-8 rounded-full bg-azure-100 flex items-center justify-center flex-shrink-0 text-xs font-semibold text-azure-700">
@@ -35,24 +100,83 @@ function Avatar({ prenom = '', nom = '' }) {
   )
 }
 
+// ─── My conge card (with progress bar) ────────────────────────────────────────
+function MyCongeCard({ conge, onCancel, cancelling, confirmCancel, setConfirmCancel }) {
+  const canCancel = ['soumis', 'reached'].includes(conge.status)
+  return (
+    <div className="border border-surface-100 rounded-xl p-4 hover:border-surface-200 hover:shadow-card transition-all">
+      <div className="flex items-start justify-between gap-3 mb-1">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-full bg-azure-600 flex items-center justify-center flex-shrink-0">
+            <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+            </svg>
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-azure-700">Moi</p>
+            <p className="text-xs text-surface-500">
+              {CONGE_TYPE_LABELS[conge.type_conge] ?? conge.type_conge}
+            </p>
+          </div>
+        </div>
+        <span className="text-xs text-surface-400 font-mono flex-shrink-0 mt-0.5">
+          {formatDate(conge.date_debut)} → {formatDate(conge.date_fin)}
+        </span>
+      </div>
+
+      <CongeProgressBar status={conge.status} />
+
+      {canCancel && (
+        <div className="mt-3 pt-2.5 border-t border-surface-100 flex justify-end">
+          {confirmCancel === conge.id ? (
+            <div className="flex gap-1.5">
+              <button onClick={() => onCancel(conge.id)} disabled={cancelling} className="btn-danger text-xs px-3 py-1.5">
+                {cancelling ? <Spinner size="sm" /> : 'Confirmer l\'annulation'}
+              </button>
+              <button onClick={() => setConfirmCancel(null)} className="btn-secondary text-xs px-3 py-1.5">Non</button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setConfirmCancel(conge.id)}
+              className="btn-ghost text-xs text-rose-500 hover:bg-rose-50 px-3 py-1.5"
+            >
+              Annuler la demande
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Page ──────────────────────────────────────────────────────────────────────
 export default function Conges() {
   const dispatch    = useDispatch()
   const toast       = useToast()
   const { isRH, isManager, isFonctionnaire, salarie } = useAuth()
 
-  const conges     = useSelector(selectConges)
-  const total      = useSelector(selectCongeTotal)
-  const loading    = useSelector(selectCongeLoading)
-  const submitting = useSelector(selectCongeSubmitting)
+  // Team conges (redux)
+  const teamConges  = useSelector(selectConges)
+  const total       = useSelector(selectCongeTotal)
+  const loading     = useSelector(selectCongeLoading)
+  const submitting  = useSelector(selectCongeSubmitting)
 
-  const [tab, setTab]               = useState('list')
-  const [showForm, setShowForm]     = useState(false)
-  const [selected, setSelected]     = useState(null)
-  const [filters, setFilters]       = useState({ status: isRH ? 'reached' : '', type_conge: '' })
-  const [page, setPage]             = useState(0)
-  const [confirmCancel, setConfirmCancel] = useState(null)
+  // Personal conges (local state for manager/RH)
+  const [myConges, setMyConges]             = useState([])
+  const [myLoading, setMyLoading]           = useState(false)
+  const [myTotal, setMyTotal]               = useState(0)
+  const [myPage, setMyPage]                 = useState(0)
+  const [myFilters, setMyFilters]           = useState({ status: '', type_conge: '' })
 
-  const load = useCallback(() => {
+  const [tab, setTab]                       = useState('my')   // 'my' | 'team' | 'calendar'
+  const [showForm, setShowForm]             = useState(false)
+  const [selected, setSelected]             = useState(null)
+  const [filters, setFilters]               = useState({ status: isRH ? 'reached' : '', type_conge: '' })
+  const [page, setPage]                     = useState(0)
+  const [confirmCancel, setConfirmCancel]   = useState(null)
+
+  // ── Load team conges (for manager/RH "Équipe" tab; for fonctionnaire main list)
+  const loadTeam = useCallback(() => {
     const params = {
       limit: LIMIT,
       offset: page * LIMIT,
@@ -62,38 +186,72 @@ export default function Conges() {
     dispatch(fetchConges(params))
   }, [dispatch, filters, page])
 
-  useEffect(() => { load() }, [load])
+  // ── Load personal conges (for manager/RH)
+  const loadMine = useCallback(() => {
+    if (!isRH && !isManager) return
+    setMyLoading(true)
+    const params = {
+      limit: LIMIT,
+      offset: myPage * LIMIT,
+      ...(myFilters.status     ? { status:     myFilters.status }     : {}),
+      ...(myFilters.type_conge ? { type_conge: myFilters.type_conge } : {}),
+    }
+    congeApi.getAll(params)
+      .then((r) => {
+        // Filter to only own requests
+        const all = r.data?.data ?? []
+        const mine = all.filter((c) => c.sal_id === salarie?.id)
+        setMyConges(mine)
+        setMyTotal(mine.length)
+      })
+      .catch(() => setMyConges([]))
+      .finally(() => setMyLoading(false))
+  }, [isRH, isManager, salarie?.id, myPage, myFilters])
+
+  useEffect(() => { loadTeam() }, [loadTeam])
+  useEffect(() => {
+    if (isRH || isManager) loadMine()
+  }, [loadMine])
 
   const handleCancel = async (id) => {
     const res = await dispatch(cancelConge(id))
-    if (cancelConge.fulfilled.match(res)) toast.success('Demande annulée')
+    if (cancelConge.fulfilled.match(res)) {
+      toast.success('Demande annulée')
+      loadMine()
+    }
     setConfirmCancel(null)
   }
 
-  const totalPages = Math.ceil(total / LIMIT)
+  const totalPages   = Math.ceil(total / LIMIT)
+  const myTotalPages = Math.ceil(myTotal / LIMIT)
+
+  // Tabs config
+  const tabs = [
+    { key: 'my',       label: 'Mes demandes' },
+    ...((isRH || isManager) ? [{ key: 'team', label: isRH ? 'Équipe / Tous' : 'Mon équipe' }] : []),
+    { key: 'calendar', label: 'Calendrier' },
+  ]
 
   return (
     <div className="space-y-5">
 
       {/* ── Header ── */}
       <div className="flex flex-wrap items-center gap-3">
+        {/* Tabs */}
         <div className="flex bg-surface-100 rounded-xl p-1 gap-1">
-          <button
-            onClick={() => setTab('list')}
-            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-              tab === 'list' ? 'bg-white text-surface-800 shadow-card' : 'text-surface-500 hover:text-surface-700'
-            }`}
-          >
-            Liste
-          </button>
-          <button
-            onClick={() => setTab('calendar')}
-            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-              tab === 'calendar' ? 'bg-white text-surface-800 shadow-card' : 'text-surface-500 hover:text-surface-700'
-            }`}
-          >
-            Calendrier
-          </button>
+          {tabs.map((t) => (
+            <button
+              key={t.key}
+              onClick={() => setTab(t.key)}
+              className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                tab === t.key
+                  ? 'bg-white text-surface-800 shadow-card'
+                  : 'text-surface-500 hover:text-surface-700'
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
         </div>
 
         <div className="flex-1" />
@@ -112,9 +270,114 @@ export default function Conges() {
         </button>
       </div>
 
+      {/* ── Calendar tab ── */}
       {tab === 'calendar' && <CongeCalendar />}
 
-      {tab === 'list' && (
+      {/* ── My requests tab (all roles) ── */}
+      {tab === 'my' && (
+        <>
+          {/* Filters for own requests */}
+          <div className="card flex flex-wrap gap-3">
+            <select
+              className="input-base w-48"
+              value={myFilters.status}
+              onChange={(e) => { setMyFilters((f) => ({ ...f, status: e.target.value })); setMyPage(0) }}
+            >
+              {STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+            </select>
+            <select
+              className="input-base w-48"
+              value={myFilters.type_conge}
+              onChange={(e) => { setMyFilters((f) => ({ ...f, type_conge: e.target.value })); setMyPage(0) }}
+            >
+              <option value="">Tous types</option>
+              {Object.entries(CONGE_TYPE_LABELS).map(([v, l]) => (
+                <option key={v} value={v}>{l}</option>
+              ))}
+            </select>
+            <button
+              onClick={() => { setMyFilters({ status: '', type_conge: '' }); setMyPage(0) }}
+              className="btn-ghost text-sm"
+            >
+              Réinitialiser
+            </button>
+          </div>
+
+          {/* For fonctionnaire — use redux state directly */}
+          {isFonctionnaire && (
+            <>
+              {loading ? (
+                <div className="flex items-center justify-center py-16">
+                  <Spinner size="lg" className="text-azure-500" />
+                </div>
+              ) : teamConges.length === 0 ? (
+                <div className="card text-center py-16 text-surface-400">
+                  <svg className="w-10 h-10 mx-auto mb-3 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  <p className="text-sm">Aucune demande trouvée</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {teamConges.map((conge) => (
+                    <MyCongeCard
+                      key={conge.id}
+                      conge={conge}
+                      onCancel={handleCancel}
+                      cancelling={submitting}
+                      confirmCancel={confirmCancel}
+                      setConfirmCancel={setConfirmCancel}
+                    />
+                  ))}
+                </div>
+              )}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-surface-400">Page {page + 1} / {totalPages}</p>
+                  <div className="flex gap-2">
+                    <button onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={page === 0} className="btn-secondary text-xs px-3 py-1.5">← Préc.</button>
+                    <button onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))} disabled={page >= totalPages - 1} className="btn-secondary text-xs px-3 py-1.5">Suiv. →</button>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+
+          {/* For manager/RH — use local myConges state */}
+          {(isRH || isManager) && (
+            <>
+              {myLoading ? (
+                <div className="flex items-center justify-center py-16">
+                  <Spinner size="lg" className="text-azure-500" />
+                </div>
+              ) : myConges.length === 0 ? (
+                <div className="card text-center py-16 text-surface-400">
+                  <svg className="w-10 h-10 mx-auto mb-3 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  <p className="text-sm">Aucune demande trouvée</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {myConges.map((conge) => (
+                    <MyCongeCard
+                      key={conge.id}
+                      conge={conge}
+                      onCancel={handleCancel}
+                      cancelling={submitting}
+                      confirmCancel={confirmCancel}
+                      setConfirmCancel={setConfirmCancel}
+                    />
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </>
+      )}
+
+      {/* ── Team tab (manager/RH only) ── */}
+      {tab === 'team' && (isRH || isManager) && (
         <>
           {/* Filters */}
           <div className="card flex flex-wrap gap-3">
@@ -125,7 +388,6 @@ export default function Conges() {
             >
               {STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
             </select>
-
             <select
               className="input-base w-48"
               value={filters.type_conge}
@@ -136,14 +398,12 @@ export default function Conges() {
                 <option key={v} value={v}>{l}</option>
               ))}
             </select>
-
             <button
               onClick={() => { setFilters({ status: isRH ? 'reached' : '', type_conge: '' }); setPage(0) }}
               className="btn-ghost text-sm"
             >
               Réinitialiser
             </button>
-
             <div className="ml-auto flex items-center gap-2 text-sm text-surface-400">
               {total} résultat{total !== 1 ? 's' : ''}
             </div>
@@ -155,7 +415,7 @@ export default function Conges() {
               <div className="flex items-center justify-center py-16">
                 <Spinner size="lg" className="text-azure-500" />
               </div>
-            ) : conges.length === 0 ? (
+            ) : teamConges.length === 0 ? (
               <div className="text-center py-16 text-surface-400">
                 <svg className="w-10 h-10 mx-auto mb-3 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -167,9 +427,7 @@ export default function Conges() {
                 <table className="w-full text-sm">
                   <thead className="bg-surface-50 border-b border-surface-100">
                     <tr>
-                      {(isRH || isManager) && (
-                        <th className="text-left text-xs font-semibold text-surface-500 px-5 py-3">Salarié</th>
-                      )}
+                      <th className="text-left text-xs font-semibold text-surface-500 px-5 py-3">Salarié</th>
                       <th className="text-left text-xs font-semibold text-surface-500 px-5 py-3">Type</th>
                       <th className="text-left text-xs font-semibold text-surface-500 px-5 py-3">Période</th>
                       <th className="text-left text-xs font-semibold text-surface-500 px-5 py-3">Statut</th>
@@ -177,29 +435,25 @@ export default function Conges() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-surface-50">
-                    {conges.map((conge) => {
-                      const isMine    = conge.sal_id === salarie?.id
-                      const canCancel = isMine && ['soumis', 'reached'].includes(conge.status)
-                      const canAction = (isRH || isManager) && ['soumis', 'reached'].includes(conge.status)
-                      const canRefuseAccepted = isRH && conge.status === 'accepte'
+                    {teamConges.map((conge) => {
+                      const canAction          = ['soumis', 'reached'].includes(conge.status)
+                      const canRefuseAccepted  = isRH && conge.status === 'accepte'
 
                       return (
                         <tr key={conge.id} className="hover:bg-surface-50 transition-colors">
-                          {(isRH || isManager) && (
-                            <td className="px-5 py-3.5">
-                              <div className="flex items-center gap-2.5">
-                                <Avatar prenom={conge.salarie?.prenom} nom={conge.salarie?.nom} />
-                                <div>
-                                  <p className="font-medium text-surface-800">
-                                    {conge.salarie ? `${conge.salarie.prenom} ${conge.salarie.nom}` : '—'}
-                                  </p>
-                                  {conge.salarie?.module?.libelle && (
-                                    <p className="text-xs text-surface-400">{conge.salarie.module.libelle}</p>
-                                  )}
-                                </div>
+                          <td className="px-5 py-3.5">
+                            <div className="flex items-center gap-2.5">
+                              <Avatar prenom={conge.salarie?.prenom} nom={conge.salarie?.nom} />
+                              <div>
+                                <p className="font-medium text-surface-800">
+                                  {conge.salarie ? `${conge.salarie.prenom} ${conge.salarie.nom}` : '—'}
+                                </p>
+                                {conge.salarie?.module?.libelle && (
+                                  <p className="text-xs text-surface-400">{conge.salarie.module.libelle}</p>
+                                )}
                               </div>
-                            </td>
-                          )}
+                            </div>
+                          </td>
                           <td className="px-5 py-3.5 text-surface-600">
                             {CONGE_TYPE_LABELS[conge.type_conge]}
                           </td>
@@ -214,42 +468,14 @@ export default function Conges() {
                             </Badge>
                           </td>
                           <td className="px-5 py-3.5 text-right">
-                            <div className="flex items-center justify-end gap-2">
-                              {(canAction || canRefuseAccepted) && (
-                                <button
-                                  onClick={() => setSelected(conge)}
-                                  className="btn-secondary text-xs px-3 py-1.5"
-                                >
-                                  Traiter
-                                </button>
-                              )}
-                              {canCancel && (
-                                confirmCancel === conge.id ? (
-                                  <div className="flex gap-1.5">
-                                    <button
-                                      onClick={() => handleCancel(conge.id)}
-                                      disabled={submitting}
-                                      className="btn-danger text-xs px-3 py-1.5"
-                                    >
-                                      {submitting ? <Spinner size="sm" /> : 'Confirmer'}
-                                    </button>
-                                    <button
-                                      onClick={() => setConfirmCancel(null)}
-                                      className="btn-secondary text-xs px-3 py-1.5"
-                                    >
-                                      Non
-                                    </button>
-                                  </div>
-                                ) : (
-                                  <button
-                                    onClick={() => setConfirmCancel(conge.id)}
-                                    className="btn-ghost text-xs text-rose-500 hover:bg-rose-50 px-3 py-1.5"
-                                  >
-                                    Annuler
-                                  </button>
-                                )
-                              )}
-                            </div>
+                            {(canAction || canRefuseAccepted) && (
+                              <button
+                                onClick={() => setSelected(conge)}
+                                className="btn-secondary text-xs px-3 py-1.5"
+                              >
+                                Traiter
+                              </button>
+                            )}
                           </td>
                         </tr>
                       )
@@ -272,8 +498,12 @@ export default function Conges() {
         </>
       )}
 
-      <CongeForm open={showForm} onClose={() => setShowForm(false)} />
-      <CongeStatusModal conge={selected} open={!!selected} onClose={() => setSelected(null)} />
+      <CongeForm open={showForm} onClose={() => { setShowForm(false); loadMine() }} />
+      <CongeStatusModal
+        conge={selected}
+        open={!!selected}
+        onClose={() => { setSelected(null); loadTeam() }}
+      />
     </div>
   )
 }

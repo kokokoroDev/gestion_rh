@@ -17,6 +17,10 @@ export default {
           700: '#122030',
           600: '#1A2E44',
           500: '#234060',
+          400: '#3A5F82',   // ← added: medium muted blue
+          300: '#5680A0',   // ← added: lighter muted blue
+          200: '#8AAFC8',   // ← added: soft blue-grey (sidebar nav text)
+          100: '#C0D5E6',   // ← added: very light (hover labels)
         },
         // Primary blue accent
         azure: {
@@ -35,17 +39,23 @@ export default {
           400: '#34D399',
           500: '#10B981',
           600: '#059669',
+          700: '#047857',
         },
         amber: {
           50:  '#FFFBEB',
           100: '#FEF3C7',
+          200: '#FDE68A',
+          300: '#FCD34D',
           400: '#FBBF24',
           500: '#F59E0B',
           600: '#D97706',
+          700: '#B45309',
+          800: '#92400E',
         },
         rose: {
           50:  '#FFF1F2',
           100: '#FFE4E6',
+          200: '#FECDD3',
           400: '#FB7185',
           500: '#F43F5E',
           600: '#E11D48',

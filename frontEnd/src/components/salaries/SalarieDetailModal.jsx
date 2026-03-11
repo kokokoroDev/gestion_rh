@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { fetchSalarieById, selectSelectedSalarie, selectSalarieLoading } from '@/store/slices/salarieSlice'
+import { useAuth } from '@/hooks/useAuth'
 import Modal from '@/components/ui/Modal'
 import Badge from '@/components/ui/Badge'
 import Spinner from '@/components/ui/Spinner'
@@ -29,10 +30,26 @@ function Field({ label, value }) {
   )
 }
 
+// Redacted placeholder shown to managers instead of sensitive data
+function RedactedField({ label }) {
+  return (
+    <div className="flex items-baseline justify-between py-1.5 border-b border-surface-50 last:border-0">
+      <span className="text-xs text-surface-500 w-36 flex-shrink-0">{label}</span>
+      <span className="flex items-center gap-1.5">
+        <svg className="w-3.5 h-3.5 text-surface-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+        </svg>
+        <span className="text-xs text-surface-300 italic">Accès RH uniquement</span>
+      </span>
+    </div>
+  )
+}
+
 export default function SalarieDetailModal({ salarieId, open, onClose }) {
   const dispatch = useDispatch()
-  const salarie  = useSelector(selectSelectedSalarie)
-  const loading  = useSelector(selectSalarieLoading)
+  const salarie = useSelector(selectSelectedSalarie)
+  const loading = useSelector(selectSalarieLoading)
+  const { isRH } = useAuth()
 
   useEffect(() => {
     if (open && salarieId) dispatch(fetchSalarieById(salarieId))
@@ -74,10 +91,15 @@ export default function SalarieDetailModal({ salarieId, open, onClose }) {
 
           {/* Info fields */}
           <Section title="Informations">
-            <Field label="CIN"           value={<span className="font-mono">{salarie.cin}</span>} />
-            <Field label="E-mail"        value={salarie.email} />
+            {isRH ? (
+              <Field label="CIN" value={<span className="font-mono">{salarie.cin}</span>} />
+            ) : (
+              <RedactedField label="CIN" />
+            )}
+            <Field label="E-mail" value={salarie.email} />
+
             <Field label="Date d'embauche" value={formatDate(salarie.date_debut)} />
-            {salarie.date_fin && <Field label="Date de fin"  value={formatDate(salarie.date_fin)} />}
+            {salarie.date_fin && <Field label="Date de fin" value={formatDate(salarie.date_fin)} />}
           </Section>
 
           {/* Congés history */}
