@@ -2,10 +2,93 @@ import { Op } from 'sequelize';
 import fs from 'fs';
 import path from 'path';
 import models from '../db/models/index.js';
-import { computeNet, checkAccess, buildSalarieInclude } from '../utils/bulpaie.js';
+import { computeNet, checkAccess, buildSalarieInclude , prevMonthYear } from '../utils/bulpaie.js';
 import { generatePayslipPDF } from '../utils/generateBulpaie.js';
 
 const { Bulpaie, Salarie, Module } = models;
+
+
+export const generateMonthlyBulpaies = async (month, year) => {
+    const m = parseInt(month);
+    const y = parseInt(year);
+
+    if (!m || !y || m < 1 || m > 12) throw new Error('Mois ou année invalide');
+
+    const salaries = await Salarie.findAll({
+        where: { status: 'active' },
+        attributes: ['id', 'prenom', 'nom', 'salaire_base'],
+    });
+
+    if (salaries.length === 0) return { generated: 0, skipped: 0, errors: [] };
+
+    const prev = prevMonthYear(m, y);
+
+    const existingIds = new Set(
+        (await Bulpaie.findAll({
+            where: { month: m, year: y },
+            attributes: ['sal_id'],
+        })).map(b => b.sal_id)
+    );
+
+    const prevBulpaies = new Map(
+        (await Bulpaie.findAll({
+            where: { month: prev.month, year: prev.year },
+            attributes: ['sal_id', 'salaire_brut'],
+        })).map(b => [b.sal_id, parseFloat(b.salaire_brut)])
+    );
+
+    let generated = 0;
+    const skipped = [];
+    const errors  = [];
+
+    for (const salarie of salaries) {
+        if (existingIds.has(salarie.id)) {
+            skipped.push({ id: salarie.id, name: `${salarie.prenom} ${salarie.nom}`, reason: 'bulletin_existant' });
+            continue;
+        }
+
+        const salaire_brut =
+            prevBulpaies.get(salarie.id) ??
+            (salarie.salaire_base ? parseFloat(salarie.salaire_base) : null);
+
+        if (!salaire_brut) {
+            skipped.push({
+                id:     salarie.id,
+                name:   `${salarie.prenom} ${salarie.nom}`,
+                reason: 'aucun_salaire_de_reference',
+            });
+            continue;
+        }
+
+        // 3. Create drafted bulletin
+        try {
+            await Bulpaie.create({
+                sal_id:       salarie.id,
+                salaire_brut,
+                deduction:    0,
+                prime:        null,
+                salaire_net:  computeNet(salaire_brut, 0, 0),
+                month:        m,
+                year:         y,
+                status:       'drafted',
+            });
+            generated++;
+        } catch (err) {
+            errors.push({ id: salarie.id, name: `${salarie.prenom} ${salarie.nom}`, error: err.message });
+        }
+    }
+
+    return {
+        generated,
+        skipped_count: skipped.length,
+        skipped,
+        error_count:   errors.length,
+        errors,
+        month: m,
+        year:  y,
+    };
+};
+
 
 
 export const createBulpaie = async (data, salarieInfo) => {

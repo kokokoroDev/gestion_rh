@@ -1,67 +1,32 @@
 import { Router } from 'express';
-import { authenticate } from '../middleware/auth.js';
-import { allowRoles } from '../middleware/role.js';
-import { validate } from '../middleware/validate.js';
 import {
-    createBulpaieSchema,
-    updateBulpaieSchema,
-    listBulpaiesSchema,
-    batchValidateSchema
-} from '../validations/bulpaie.js';
-import * as bulpaieController from '../controllers/bulpaieController.js';
+    generateBulpaies,
+    createBulpaie,
+    updateBulpaie,
+    validateBulpaie,
+    validateBulpaieBatch,
+    deleteBulpaie,
+    getBulpaies,
+    getBulpaieById,
+    downloadBulpaie,
+} from '../controllers/bulpaieController.js';
+import { authenticate } from '../middleware/auth.js';
 
 const router = Router();
+
 router.use(authenticate);
 
-router.post(
-    '/batch-validate',
-    allowRoles('rh'),
-    validate(batchValidateSchema),
-    bulpaieController.validateBatch
-);
+router.post('/generate', generateBulpaies);
 
-router.post(
-    '/',
-    allowRoles('rh'),
-    validate(createBulpaieSchema),
-    bulpaieController.createBulpaie
-);
+router.post('/validate-batch', validateBulpaieBatch);
 
-// GET  /api/paie          → list payslips
-//   • fonctionnaire/manager : own payslips only
-//   • rh                    : all payslips, filterable by sal_id / month / year / status
-router.get(
-    '/',
-    validate(listBulpaiesSchema, 'query'),
-    bulpaieController.getBulpaies
-);
+router.get('/',          getBulpaies);
+router.post('/',         createBulpaie);
+router.get('/:id',       getBulpaieById);
+router.put('/:id',       updateBulpaie);
+router.delete('/:id',    deleteBulpaie);
 
-// GET    /api/paie/:id            → get payslip detail (access enforced in service)
-router.get('/:id', bulpaieController.getBulpaieById);
-
-// PUT    /api/paie/:id            → edit a drafted payslip (RH only; blocked if validated)
-router.put(
-    '/:id',
-    allowRoles('rh'),
-    validate(updateBulpaieSchema),
-    bulpaieController.updateBulpaie
-);
-
-// PATCH  /api/paie/:id/validate   → validate one payslip → generates PDF → locks record
-router.patch(
-    '/:id/validate',
-    allowRoles('rh'),
-    bulpaieController.validateBulpaie
-);
-
-// GET    /api/paie/:id/download   → stream PDF to client (all roles, own records only)
-router.get('/:id/download', bulpaieController.downloadBulpaie);
-
-// DELETE /api/paie/:id            → delete a drafted payslip (RH only; blocked if validated)
-router.delete(
-    '/:id',
-    allowRoles('rh'),
-    bulpaieController.deleteBulpaie
-);
+router.patch('/:id/validate',  validateBulpaie);
+router.get('/:id/download',    downloadBulpaie);
 
 export default router;

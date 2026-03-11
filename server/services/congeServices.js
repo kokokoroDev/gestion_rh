@@ -1,10 +1,8 @@
-import { Op  } from 'sequelize';
-import models from '../db/models/index.js';
+import { Op } from 'sequelize';
+import models, { sequelizeCon } from '../db/models/index.js';
 import { buildAccessWhere, overlapCondition, countWorkingDays } from "../utils/conge.js";
 
 const { Conge, Salarie, Module } = models;
-
-
 
 export const soumettreConge = async (data, salarieId) => {
     const { type_conge = 'vacance', date_debut, date_fin, commentaire = null } = data;
@@ -65,12 +63,15 @@ export const soumettreConge = async (data, salarieId) => {
         }
     }
 
+    // ── Manager conges skip to 'reached' (bypass manager step); RH too ──
+    const initialStatus = ['manager', 'rh'].includes(salarie.role) ? 'reached' : 'soumis';
+
     const conge = await Conge.create({
         sal_id: salarieId,
         type_conge,
         date_debut,
         date_fin,
-        status: salarie.role === 'manager' ? 'reached' : 'soumis',
+        status: initialStatus,
         commentaire
     });
 
@@ -79,7 +80,6 @@ export const soumettreConge = async (data, salarieId) => {
 
 export const getConges = async (filters = {}, salarieInfo) => {
     const { role, id: sal_id, module_id } = salarieInfo;
-    console.log(salarieInfo)
     const { limit = 10, offset = 0 } = filters;
 
     const where = await buildAccessWhere(salarieInfo, filters);
@@ -99,9 +99,7 @@ export const getConges = async (filters = {}, salarieInfo) => {
 
     const result = await Conge.findAndCountAll({
         where,
-        include: [
-            salarieInclude
-        ],
+        include: [salarieInclude],
         order: [['date_debut', 'DESC']],
         limit: parseInt(limit),
         offset: parseInt(offset),
@@ -139,7 +137,7 @@ export const getCongeById = async (id, salarieInfo) => {
 };
 
 export const updateCongeStatus = async (id, newStatus, salarieInfo) => {
-    const { role, id: sal_id, module_id } = salarieInfo;
+    const { role, id: callerId, module_id } = salarieInfo;
 
     const conge = await Conge.findByPk(id, {
         include: [
@@ -153,22 +151,32 @@ export const updateCongeStatus = async (id, newStatus, salarieInfo) => {
 
     if (!conge) throw new Error('Congé non trouvé');
 
+    // ── FIX 3: Prevent self-approval ──
+    if (conge.sal_id === callerId) {
+        throw new Error('Vous ne pouvez pas modifier le statut de votre propre demande de congé');
+    }
+
     if (role === 'manager') {
         if (!module_id) throw new Error("Vous n'êtes pas associé à un module");
         if (conge.salarie.module_id !== module_id) throw new Error('Accès refusé');
-    }
 
+        // ── FIX 4: Manager can't act on conges that already bypassed their step ──
+        // (e.g. another manager's conge that started at 'reached')
+        if (conge.salarie.role === 'manager' && newStatus === 'reached') {
+            throw new Error("Impossible de transférer la demande d'un autre manager");
+        }
+    }
 
     const currentStatus = conge.status;
 
     const allowed = {
         manager: {
             reached: ['soumis'],
-            refuse: ['soumis', 'reached'], 
+            refuse:  ['soumis'],   // FIX 4b: manager can only refuse 'soumis', not 'reached' (already forwarded)
         },
         rh: {
-            accepte: ['soumis', 'reached'], 
-            refuse: ['soumis', 'reached', 'accepte'],
+            accepte: ['soumis', 'reached'],
+            refuse:  ['soumis', 'reached', 'accepte'],
         },
     };
 
@@ -185,37 +193,51 @@ export const updateCongeStatus = async (id, newStatus, salarieInfo) => {
         );
     }
 
-    const salarie = await Salarie.findByPk(conge.sal_id);
-    const joursOuvrables = countWorkingDays(
-        new Date(conge.date_debut),
-        new Date(conge.date_fin)
-    );
+    // ── FIX 5: Wrap balance mutation in a transaction to prevent race conditions ──
+    return await sequelizeCon.transaction(async (t) => {
+        const salarie = await Salarie.findByPk(conge.sal_id, {
+            lock: t.LOCK.UPDATE,
+            transaction: t,
+        });
 
-    if (newStatus === 'accepte' && conge.type_conge === 'vacance') {
-        const currentBalance = parseFloat(salarie.mon_cong);
-        if (currentBalance < joursOuvrables) {
-            throw new Error(
-                `Solde insuffisant: ${currentBalance} jours disponibles, ${joursOuvrables} requis`
+        const joursOuvrables = countWorkingDays(
+            new Date(conge.date_debut),
+            new Date(conge.date_fin)
+        );
+
+        if (newStatus === 'accepte' && conge.type_conge === 'vacance') {
+            const currentBalance = parseFloat(salarie.mon_cong);
+            if (currentBalance < joursOuvrables) {
+                throw new Error(
+                    `Solde insuffisant: ${currentBalance} jours disponibles, ${joursOuvrables} requis`
+                );
+            }
+            await salarie.update(
+                { mon_cong: currentBalance - joursOuvrables },
+                { transaction: t }
             );
         }
-        await salarie.update({ mon_cong: currentBalance - joursOuvrables });
-    }
 
-    if (newStatus === 'refuse' && currentStatus === 'accepte' && conge.type_conge === 'vacance') {
-        const currentBalance = parseFloat(salarie.mon_cong);
-        await salarie.update({ mon_cong: currentBalance + joursOuvrables });
-    }
+        if (newStatus === 'refuse' && currentStatus === 'accepte' && conge.type_conge === 'vacance') {
+            const currentBalance = parseFloat(salarie.mon_cong);
+            await salarie.update(
+                { mon_cong: currentBalance + joursOuvrables },
+                { transaction: t }
+            );
+        }
 
-    await conge.update({ status: newStatus });
+        await conge.update({ status: newStatus }, { transaction: t });
 
-    return conge.reload({
-        include: [
-            {
-                model: Salarie,
-                as: 'salarie',
-                attributes: ['id', 'prenom', 'nom'],
-            }
-        ],
+        return conge.reload({
+            include: [
+                {
+                    model: Salarie,
+                    as: 'salarie',
+                    attributes: ['id', 'prenom', 'nom'],
+                },
+            ],
+            transaction: t,
+        });
     });
 };
 
@@ -245,8 +267,8 @@ export const getCalendar = async (filters, salarieInfo) => {
     if (fin < debut) throw new Error('date_to doit être après date_from');
 
     const targetModule = role === 'rh'
-        ? (filterModule || null)  
-        : userModule;        
+        ? (filterModule || null)
+        : userModule;
 
     const salarieWhere = { status: 'active' };
     if (targetModule) salarieWhere.module_id = targetModule;

@@ -1,87 +1,92 @@
-import path from 'path';
-import * as bulpaieService from '../services/bulpaieServices.js';
+import * as bulpaieServices from '../services/bulpaieServices.js';
+
+export const generateBulpaies = async (req, res) => {
+    try {
+        if (req.salarie.role !== 'rh') {
+            return res.status(403).json({ message: 'Accès refusé — RH uniquement' });
+        }
+
+        const { month, year } = req.body;
+        if (!month || !year) {
+            return res.status(400).json({ message: 'month et year sont requis' });
+        }
+
+        const result = await bulpaieServices.generateMonthlyBulpaies(month, year);
+        return res.status(200).json(result);
+    } catch (err) {
+        return res.status(400).json({ message: err.message });
+    }
+};
+
 
 export const createBulpaie = async (req, res) => {
     try {
-        const result = await bulpaieService.createBulpaie(req.body, req.salarie);
-        res.status(201).json(result);
-    } catch (error) {
-        const code = error.message === 'Accès refusé' ? 403 : 400;
-        res.status(code).json({ message: error.message });
-    }
-};
-
-export const getBulpaies = async (req, res) => {
-    try {
-        const result = await bulpaieService.getBulpaies(req.query, req.salarie);
-        res.json(result);
-    } catch (error) {
-        res.status(500).json({ message: error.message });
-    }
-};
-
-export const getBulpaieById = async (req, res) => {
-    try {
-        const result = await bulpaieService.getBulpaieById(req.params.id, req.salarie);
-        res.json(result);
-    } catch (error) {
-        const code = error.message === 'Accès refusé' ? 403 : 404;
-        res.status(code).json({ message: error.message });
+        const bulpaie = await bulpaieServices.createBulpaie(req.body, req.salarie);
+        return res.status(201).json(bulpaie);
+    } catch (err) {
+        return res.status(400).json({ message: err.message });
     }
 };
 
 export const updateBulpaie = async (req, res) => {
     try {
-        const result = await bulpaieService.updateBulpaie(req.params.id, req.body, req.salarie);
-        res.json(result);
-    } catch (error) {
-        const code = error.message === 'Accès refusé' ? 403 : 400;
-        res.status(code).json({ message: error.message });
+        const bulpaie = await bulpaieServices.updateBulpaie(req.params.id, req.body, req.salarie);
+        return res.status(200).json(bulpaie);
+    } catch (err) {
+        return res.status(400).json({ message: err.message });
     }
 };
 
 export const validateBulpaie = async (req, res) => {
     try {
-        const result = await bulpaieService.validateBulpaie(req.params.id, req.salarie);
-        res.json(result);
-    } catch (error) {
-        const code = error.message === 'Accès refusé' ? 403 : 400;
-        res.status(code).json({ message: error.message });
+        const bulpaie = await bulpaieServices.validateBulpaie(req.params.id, req.salarie);
+        return res.status(200).json(bulpaie);
+    } catch (err) {
+        return res.status(400).json({ message: err.message });
+    }
+};
+
+export const validateBulpaieBatch = async (req, res) => {
+    try {
+        const result = await bulpaieServices.validateBatch(req.body, req.salarie);
+        return res.status(200).json(result);
+    } catch (err) {
+        return res.status(400).json({ message: err.message });
     }
 };
 
 export const deleteBulpaie = async (req, res) => {
     try {
-        await bulpaieService.deleteBulpaie(req.params.id, req.salarie);
-        res.status(204).send();
-    } catch (error) {
-        const code = error.message === 'Accès refusé' ? 403 : 400;
-        res.status(code).json({ message: error.message });
+        await bulpaieServices.deleteBulpaie(req.params.id, req.salarie);
+        return res.status(200).json({ message: 'Bulletin supprimé' });
+    } catch (err) {
+        return res.status(400).json({ message: err.message });
     }
 };
 
-export const validateBatch = async (req, res) => {
+export const getBulpaies = async (req, res) => {
     try {
-        const result = await bulpaieService.validateBatch(req.body, req.salarie);
-        res.json(result);
-    } catch (error) {
-        const code = error.message === 'Accès refusé' ? 403 : 400;
-        res.status(code).json({ message: error.message });
+        const result = await bulpaieServices.getBulpaies(req.query, req.salarie);
+        return res.status(200).json(result);
+    } catch (err) {
+        return res.status(400).json({ message: err.message });
+    }
+};
+
+export const getBulpaieById = async (req, res) => {
+    try {
+        const bulpaie = await bulpaieServices.getBulpaieById(req.params.id, req.salarie);
+        return res.status(200).json(bulpaie);
+    } catch (err) {
+        return res.status(400).json({ message: err.message });
     }
 };
 
 export const downloadBulpaie = async (req, res) => {
     try {
-        const absPath = await bulpaieService.getBulpaieFilePath(req.params.id, req.salarie);
-
-        const filename = path.basename(absPath);
-        res.setHeader('Content-Type', 'application/pdf');
-        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-        res.sendFile(absPath);
-    } catch (error) {
-        const code = error.message === 'Accès refusé' ? 403
-            : error.message.includes('introuvable') ? 404
-                : 400;
-        res.status(code).json({ message: error.message });
+        const filePath = await bulpaieServices.getBulpaieFilePath(req.params.id, req.salarie);
+        return res.download(filePath);
+    } catch (err) {
+        return res.status(400).json({ message: err.message });
     }
 };

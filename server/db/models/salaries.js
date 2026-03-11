@@ -52,6 +52,11 @@ const Salarie = sequelizeCon.define('Salarie',
         },
         onDelete : 'SET NULL'
     },
+    salaire_base : {
+        type : DataTypes.DECIMAL(10,2),
+        allowNull : true,
+        defaultValue : 4000.00
+    },
     status : {
         type : DataTypes.ENUM('active' , 'inactive'),
         defaultValue : 'active'

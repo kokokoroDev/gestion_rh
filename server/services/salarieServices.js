@@ -1,4 +1,4 @@
-import { Op, where } from "sequelize";
+import { Op } from "sequelize";
 import models from "../db/models/index.js";
 import { comparePassword, hashPassword } from "../utils/auth.js";
 
@@ -6,14 +6,11 @@ const { Salarie, Module, Conge, Bulpaie } = models;
 
 
 const assureUniqueManager = async (module_id) => {
-  if (!module_id) return;                          // exit only when there's NO module
-
+  if (!module_id) return;
   const currentManager = await Salarie.findOne({
     where: { module_id, role: 'manager' },
   });
-
   if (!currentManager) return;
-
   await currentManager.update({ role: 'fonctionnaire' });
 }
 
@@ -80,10 +77,7 @@ export const getAllSalaries = async (filters = {}, limitations = {}) => {
 export const getSalarieById = async (id, limitations = {}) => {
   const include = [
     { model: Module, as: 'module' },
-    {
-      model: Conge,
-      as: 'conges'
-    },
+    { model: Conge, as: 'conges' },
     { model: Bulpaie, as: 'bulletins' },
   ];
 
@@ -94,10 +88,15 @@ export const getSalarieById = async (id, limitations = {}) => {
     whereClause.module_id = limitations.module_id;
   }
 
+  const excludeAttrs = ['password', 'deleted_at'];
+  if (limitations?.role === 'manager') {
+    excludeAttrs.push('cin');
+  }
+
   const salarie = await Salarie.findOne({
     where: whereClause,
     include,
-    attributes: { exclude: ['password', 'deleted_at'] },
+    attributes: { exclude: excludeAttrs },
   });
 
   if (!salarie) throw new Error('Salarié non trouvé ou accès refusé');
@@ -134,7 +133,7 @@ export const updateSalarie = async (id, data) => {
   const salarie = await Salarie.findByPk(id);
   if (!salarie) throw new Error('Salarié non trouvé');
 
-  const { email, cin, module_id, password, changeManager = false , role : instanceRole } = data;
+  const { email, cin, module_id, password, changeManager = false, role: instanceRole } = data;
 
   if (email && email !== salarie.email) {
     const existingEmail = await Salarie.findOne({ where: { email } });
@@ -146,16 +145,15 @@ export const updateSalarie = async (id, data) => {
     if (existingCin) throw new Error('Ce CIN est déjà utilisé');
   }
 
-  if (password && !await comparePassword(password, salarie.password)) {
-    const newPassword = await hashPassword(password)
-    data['password'] = newPassword
+  if (password) {
+    data['password'] = await hashPassword(password);
   }
 
-  let lastRole = instanceRole
+  let lastRole = instanceRole;
   if (instanceRole === 'manager' && changeManager) {
-    await assureUniqueManager(module_id)
+    await assureUniqueManager(module_id);
   } else if (instanceRole === 'manager' && !changeManager) {
-    lastRole = 'fonctionnaire'
+    lastRole = 'fonctionnaire';
   }
 
   if (module_id && module_id !== salarie.module_id) {
@@ -163,14 +161,13 @@ export const updateSalarie = async (id, data) => {
     if (!moduleExists) throw new Error('Module non trouvé');
   }
 
-  await salarie.update(data);
+  await salarie.update({ ...data, role: lastRole });
   return salarie;
 };
 
 export const createSalarie = async (data, salarieInfo) => {
   const { email, cin, module_id, changeManager = false, role: instanceRole } = data;
   const { role, man_module } = salarieInfo;
-
 
   const existing = await Salarie.findOne({
     where: { [Op.or]: [{ email }, { cin }] },
@@ -197,14 +194,14 @@ export const createSalarie = async (data, salarieInfo) => {
     if (!moduleExists) throw new Error('Module non trouvé');
   }
 
-  let lastRole = instanceRole
+  let lastRole = instanceRole;
   if (instanceRole === 'manager' && changeManager) {
-    await assureUniqueManager(finalModuleId)
+    await assureUniqueManager(finalModuleId);
   } else if (instanceRole === 'manager' && !changeManager) {
-    lastRole = 'fonctionnaire'
+    lastRole = 'fonctionnaire';
   }
 
-  const password = await hashPassword(data.password)
+  const password = await hashPassword(data.password);
 
   const salarie = await Salarie.create({
     ...data,
@@ -213,5 +210,7 @@ export const createSalarie = async (data, salarieInfo) => {
     module_id: finalModuleId,
   });
 
-  return salarie;
+  // ── FIX 2: Never return password hash in response ──
+  const { password: _pwd, deleted_at, ...safeData } = salarie.toJSON();
+  return safeData;
 };

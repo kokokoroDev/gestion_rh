@@ -2,6 +2,16 @@ import models from "../db/models/index.js";
 
 const {Module , Salarie } = models
 
+/**
+ * Given a month (1–12) and year, return the previous month and year.
+ */
+export const prevMonthYear = (month, year) => {
+    if (month === 1) return { month: 12, year: year - 1 };
+    return { month: month - 1, year };
+};
+
+
+
 export const computeNet = (salaire_brut, prime = 0, deduction = 0) => {
     const net = parseFloat(salaire_brut) + parseFloat(prime || 0) - parseFloat(deduction || 0);
     if (net < 0) throw new Error('Le salaire net ne peut pas être négatif');

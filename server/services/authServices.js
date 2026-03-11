@@ -18,7 +18,7 @@ export const login = async (email, password) => {
     const valid = await comparePassword(password, salarie.password);
     if (!valid) throw new Error('Email ou mot de passe incorrect');
 
-    const token = generateToken({ id: salarie.id, role: salarie.role , module_id : salarie.module_id});
+    const token = generateToken({ id: salarie.id, role: salarie.role, module_id: salarie.module_id });
 
     const salarieData = sanitizeSalarie(salarie)
 
@@ -32,7 +32,7 @@ export const refreshToken = async (oldToken) => {
         const salarie = await Salarie.findByPk(decoded.id);
         if (!salarie || salarie.status === 'inactive') throw new Error('Utilisateur invalide');
 
-        return generateToken({ id: salarie.id, role: salarie.role , module_id : salarie.module_id });
+        return generateToken({ id: salarie.id, role: salarie.role, module_id: salarie.module_id });
     } catch (error) {
         console.error('Refresh token error:', error);
         throw new Error('Token invalide ou expiré');
@@ -40,24 +40,24 @@ export const refreshToken = async (oldToken) => {
 };
 
 export const register = async (salarieData) => {
-
     const { email, cin, password } = salarieData;
+
+    // ── FIX 6: Public registration is ALWAYS fonctionnaire — role cannot be chosen ──
+    // Admins use the /sal POST endpoint (requires RH/manager auth) to create privileged accounts
+    const safeRole = 'fonctionnaire';
 
     const existentCount = await Salarie.count({
         where: {
             [Op.or]: [{ email }, { cin }]
         },
-        
     });
     if (existentCount > 0) throw new Error('Ce compte existe déjà')
-    if(salarieData?.module_id){
+
+    if (salarieData?.module_id) {
         const existentModuleCount = await Module.count({
-            where : {
-               'id' : salarieData.module_id
-            }
+            where: { 'id': salarieData.module_id }
         })
-    
-        if(existentModuleCount < 1) throw new Error('Entrer un module existent')
+        if (existentModuleCount < 1) throw new Error('Entrer un module existent')
     }
 
     const hashedPassword = await hashPassword(password);
@@ -65,19 +65,18 @@ export const register = async (salarieData) => {
     const salarie = await Salarie.create({
         ...salarieData,
         password: hashedPassword,
-        role: salarieData.role || 'fonctionnaire'
+        role: safeRole,   // always fonctionnaire regardless of what was sent
     });
 
     const salarieWithModule = await Salarie.findByPk(salarie.id, {
         include: [{ model: Module, as: 'module', attributes: { exclude: ['description'] } }]
     });
 
-    const token = generateToken({ id: salarie.id, role: salarie.role , module_id : salarie.module_id });
+    const token = generateToken({ id: salarie.id, role: salarie.role, module_id: salarie.module_id });
 
     const salarieJson = sanitizeSalarie(salarieWithModule)
 
     return { salarie: salarieJson, token };
-
 };
 
 export const changePassword = async (salarieId, oldPassword, newPassword) => {

@@ -24,12 +24,17 @@ export const buildAccessWhere = async (salarieInfo, extraFilters = {}) => {
   if (role === 'fonctionnaire') {
     where.sal_id = sal_id;
   } else if (role === 'rh') {
-    where.status = extraFilters.status || 'reached';
+    if (extraFilters.sal_id) {
+      where.sal_id = extraFilters.sal_id;
+    } else {
+      where.status = extraFilters.status || 'reached';
+    }
   }
 
   if (extraFilters.status && role !== 'rh') where.status = extraFilters.status;
+  if (extraFilters.status && role === 'rh' && extraFilters.sal_id) where.status = extraFilters.status;
   if (extraFilters.type_conge) where.type_conge = extraFilters.type_conge;
-  if (extraFilters.sal_id && role !== 'fonctionnaire') where.sal_id = extraFilters.sal_id;
+  if (extraFilters.sal_id && role === 'manager') where.sal_id = extraFilters.sal_id;
 
   if (extraFilters.date_from || extraFilters.date_to) {
     where.date_debut = {};
