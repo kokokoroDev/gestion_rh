@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import { useDispatch, useSelector } from 'react-redux'
-import Sidebar from '@/components/sidebar/Sidebar'
-import ToastContainer from '@/components/ui/ToastContainer'
+import Sidebar           from '@/components/sidebar/Sidebar'
+import ToastContainer    from '@/components/ui/ToastContainer'
+import NotificationBell  from '@/components/ui/NotificationBell'
+import { useSocket }     from '@/hooks/useSocket'
 import { selectSidebarOpen, setSidebarOpen } from '@/store/slices/uiSlice'
 
 const PAGE_TITLES = {
@@ -13,10 +15,13 @@ const PAGE_TITLES = {
 }
 
 export default function DashboardLayout() {
-  const dispatch   = useDispatch()
-  const location   = useLocation()
+  const dispatch    = useDispatch()
+  const location    = useLocation()
   const sidebarOpen = useSelector(selectSidebarOpen)
   const [mobileOpen, setMobileOpen] = useState(false)
+
+  // ── Mount the WebSocket connection for the entire authenticated session ──
+  useSocket()
 
   // Close mobile sidebar on route change
   useEffect(() => setMobileOpen(false), [location.pathname])
@@ -63,11 +68,14 @@ export default function DashboardLayout() {
             {pageTitle}
           </h1>
 
-          {/* Topbar right — could add notifications here later */}
+          {/* Topbar right */}
           <div className="flex items-center gap-2">
             <span className="hidden sm:block text-xs text-surface-400 font-mono bg-surface-100 px-2.5 py-1 rounded-lg">
               {new Date().toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'long' })}
             </span>
+
+            {/* 🔔 Notification bell */}
+            <NotificationBell />
           </div>
         </header>
 

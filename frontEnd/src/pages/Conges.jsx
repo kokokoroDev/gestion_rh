@@ -4,6 +4,7 @@ import {
   fetchConges, cancelConge,
   selectConges, selectCongeTotal, selectCongeLoading, selectCongeSubmitting
 } from '@/store/slices/congeSlice'
+import { selectNotifs } from '@/store/slices/notifSlice'
 import { congeApi } from '@/api/conge.api'
 import { useAuth } from '@/hooks/useAuth'
 import { useToast } from '@/hooks/useToast'
@@ -160,6 +161,7 @@ export default function Conges() {
   const total       = useSelector(selectCongeTotal)
   const loading     = useSelector(selectCongeLoading)
   const submitting  = useSelector(selectCongeSubmitting)
+  const notifications = useSelector(selectNotifs)  // Watch for new conge notifications
 
   // Personal conges (local state for manager/RH)
   const [myConges, setMyConges]             = useState([])
@@ -212,6 +214,28 @@ export default function Conges() {
   useEffect(() => {
     if (isRH || isManager) loadMine()
   }, [loadMine])
+
+  // ── Real-time sync: refresh when conge notifications arrive ──────────────────
+  useEffect(() => {
+    if (notifications.length === 0) return
+    const latestNotif = notifications[0]
+    
+    // Only refresh on conge-related notifications
+    if (latestNotif.type === 'conge_status_change') {
+      // Refresh team list (managers see team pending requests, RH sees all 'reached')
+      if ((isManager || isRH) && tab === 'team') {
+        loadTeam()
+      }
+      // Refresh personal list for manager/RH
+      if ((isManager || isRH) && tab === 'my') {
+        loadMine()
+      }
+      // Refresh team list for fonctionnaire (their own leaves)
+      if (isFonctionnaire && tab === 'my') {
+        loadTeam()
+      }
+    }
+  }, [notifications, loadTeam, loadMine, tab, isManager, isRH, isFonctionnaire])
 
   const handleCancel = async (id) => {
     const res = await dispatch(cancelConge(id))

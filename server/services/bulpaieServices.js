@@ -2,16 +2,17 @@ import { Op } from 'sequelize';
 import fs from 'fs';
 import path from 'path';
 import models from '../db/models/index.js';
-import { computeNet, checkAccess, buildSalarieInclude , prevMonthYear } from '../utils/bulpaie.js';
+import { computeNet, checkAccess, buildSalarieInclude, prevMonthYear } from '../utils/bulpaie.js';
 import { generatePayslipPDF } from '../utils/generateBulpaie.js';
+import { createNotification, notifyAllRH } from './notificationServices.js';
 
 const { Bulpaie, Salarie, Module } = models;
 
+// ─── GENERATE ─────────────────────────────────────────────────────────────────
 
 export const generateMonthlyBulpaies = async (month, year) => {
     const m = parseInt(month);
     const y = parseInt(year);
-
     if (!m || !y || m < 1 || m > 12) throw new Error('Mois ou année invalide');
 
     const salaries = await Salarie.findAll({
@@ -60,18 +61,27 @@ export const generateMonthlyBulpaies = async (month, year) => {
             continue;
         }
 
-        // 3. Create drafted bulletin
         try {
             await Bulpaie.create({
-                sal_id:       salarie.id,
+                sal_id:      salarie.id,
                 salaire_brut,
-                deduction:    0,
-                prime:        null,
-                salaire_net:  computeNet(salaire_brut, 0, 0),
-                month:        m,
-                year:         y,
-                status:       'drafted',
+                deduction:   0,
+                prime:       null,
+                salaire_net: computeNet(salaire_brut, 0, 0),
+                month:       m,
+                year:        y,
+                status:      'drafted',
             });
+            
+            // Notify the employee their bulletin was generated
+            await createNotification(
+                salarie.id,
+                'bulpaie_validated',
+                'Nouveau bulletin de paie',
+                `Votre bulletin de paie pour ${m}/${y} a été généré et est en attente de validation.`,
+                null
+            ).catch(() => {});
+            
             generated++;
         } catch (err) {
             errors.push({ id: salarie.id, name: `${salarie.prenom} ${salarie.nom}`, error: err.message });
@@ -89,7 +99,7 @@ export const generateMonthlyBulpaies = async (month, year) => {
     };
 };
 
-
+// ─── CREATE ───────────────────────────────────────────────────────────────────
 
 export const createBulpaie = async (data, salarieInfo) => {
     if (salarieInfo.role !== 'rh') throw new Error('Accès refusé');
@@ -101,18 +111,16 @@ export const createBulpaie = async (data, salarieInfo) => {
 
     const existing = await Bulpaie.findOne({ where: { sal_id, month, year } });
     if (existing) {
-        throw new Error(
-            `Un bulletin existe déjà pour ${salarie.prenom} ${salarie.nom} — ${month}/${year}`
-        );
+        throw new Error(`Un bulletin existe déjà pour ${salarie.prenom} ${salarie.nom} — ${month}/${year}`);
     }
 
     const salaire_net = computeNet(salaire_brut, prime, deduction);
 
     const bulpaie = await Bulpaie.create({
         sal_id,
-        salaire_brut: parseFloat(salaire_brut),
-        deduction: parseFloat(deduction),
-        prime: prime ? parseFloat(prime) : null,
+        salaire_brut:  parseFloat(salaire_brut),
+        deduction:     parseFloat(deduction),
+        prime:         prime ? parseFloat(prime) : null,
         salaire_net,
         month,
         year,
@@ -122,6 +130,8 @@ export const createBulpaie = async (data, salarieInfo) => {
     return bulpaie.reload({ include: [buildSalarieInclude()] });
 };
 
+// ─── UPDATE ───────────────────────────────────────────────────────────────────
+
 export const updateBulpaie = async (id, data, salarieInfo) => {
     if (salarieInfo.role !== 'rh') throw new Error('Accès refusé');
 
@@ -130,41 +140,47 @@ export const updateBulpaie = async (id, data, salarieInfo) => {
     if (bulpaie.status === 'validated') throw new Error('Impossible de modifier un bulletin validé');
 
     const salaire_brut = data.salaire_brut ?? bulpaie.salaire_brut;
-    const deduction = data.deduction ?? bulpaie.deduction;
-    const prime = data.prime !== undefined ? data.prime : bulpaie.prime;
-
-    const salaire_net = computeNet(salaire_brut, prime, deduction);
+    const deduction    = data.deduction    ?? bulpaie.deduction;
+    const prime        = data.prime !== undefined ? data.prime : bulpaie.prime;
+    const salaire_net  = computeNet(salaire_brut, prime, deduction);
 
     await bulpaie.update({
         ...data,
         salaire_brut: parseFloat(salaire_brut),
-        deduction: parseFloat(deduction),
-        prime: prime !== null ? parseFloat(prime) : null,
+        deduction:    parseFloat(deduction),
+        prime:        prime !== null ? parseFloat(prime) : null,
         salaire_net,
     });
 
     return bulpaie.reload({ include: [buildSalarieInclude()] });
 };
 
-// ─── VALIDATE ────────────────────────────────────────────────────────────────
+// ─── VALIDATE ─────────────────────────────────────────────────────────────────
 
 export const validateBulpaie = async (id, salarieInfo) => {
     if (salarieInfo.role !== 'rh') throw new Error('Accès refusé');
 
-    const bulpaie = await Bulpaie.findByPk(id, {
-        include: [buildSalarieInclude()],
-    });
+    const bulpaie = await Bulpaie.findByPk(id, { include: [buildSalarieInclude()] });
     if (!bulpaie) throw new Error('Bulletin non trouvé');
     if (bulpaie.status === 'validated') throw new Error('Ce bulletin est déjà validé');
 
     await bulpaie.update({ status: 'validated' });
-
     const filePath = await generatePayslipPDF(bulpaie);
     await bulpaie.update({ file_path: filePath });
 
+    // Notify the employee
+    createNotification(
+        bulpaie.sal_id,
+        'bulpaie_validated',
+        'Bulletin de paie disponible',
+        `Votre bulletin de paie pour ${bulpaie.month}/${bulpaie.year} a été validé et est disponible au téléchargement.`,
+        bulpaie.id
+    ).catch(() => {});
+
     return bulpaie.reload({ include: [buildSalarieInclude()] });
 };
-// ─── DELETE ──────────────────────────────────────────────────────────────────
+
+// ─── DELETE ───────────────────────────────────────────────────────────────────
 
 export const deleteBulpaie = async (id, salarieInfo) => {
     if (salarieInfo.role !== 'rh') throw new Error('Accès refusé');
@@ -177,28 +193,29 @@ export const deleteBulpaie = async (id, salarieInfo) => {
     return true;
 };
 
+// ─── LIST ─────────────────────────────────────────────────────────────────────
+
 export const getBulpaies = async (filters = {}, salarieInfo) => {
     const { role, id: callerId } = salarieInfo;
     const { month, year, status, sal_id, limit = 12, offset = 0 } = filters;
 
     const where = {};
-
     if (role === 'fonctionnaire' || role === 'manager') {
         where.sal_id = callerId;
     } else if (sal_id) {
         where.sal_id = sal_id;
     }
 
-    if (month) where.month = parseInt(month);
-    if (year) where.year = parseInt(year);
+    if (month)  where.month  = parseInt(month);
+    if (year)   where.year   = parseInt(year);
     if (status) where.status = status;
 
     const result = await Bulpaie.findAndCountAll({
         where,
         include: [buildSalarieInclude()],
-        order: [['year', 'DESC'], ['month', 'DESC']],
-        limit: parseInt(limit),
-        offset: parseInt(offset),
+        order:   [['year', 'DESC'], ['month', 'DESC']],
+        limit:   parseInt(limit),
+        offset:  parseInt(offset),
         distinct: true,
     });
 
@@ -206,11 +223,8 @@ export const getBulpaies = async (filters = {}, salarieInfo) => {
 };
 
 export const getBulpaieById = async (id, salarieInfo) => {
-    const bulpaie = await Bulpaie.findByPk(id, {
-        include: [buildSalarieInclude()],
-    });
+    const bulpaie = await Bulpaie.findByPk(id, { include: [buildSalarieInclude()] });
     if (!bulpaie) throw new Error('Bulletin non trouvé');
-
     checkAccess(bulpaie, salarieInfo);
     return bulpaie;
 };
@@ -218,18 +232,17 @@ export const getBulpaieById = async (id, salarieInfo) => {
 export const getBulpaieFilePath = async (id, salarieInfo) => {
     const bulpaie = await Bulpaie.findByPk(id);
     if (!bulpaie) throw new Error('Bulletin non trouvé');
-
     checkAccess(bulpaie, salarieInfo);
 
     if (!bulpaie.file_path) throw new Error('PDF non encore généré pour ce bulletin');
 
     const absPath = path.resolve(bulpaie.file_path);
-    if (!fs.existsSync(absPath)) {
-        throw new Error('Fichier PDF introuvable sur le serveur');
-    }
+    if (!fs.existsSync(absPath)) throw new Error('Fichier PDF introuvable sur le serveur');
 
     return absPath;
 };
+
+// ─── BATCH VALIDATE ───────────────────────────────────────────────────────────
 
 export const validateBatch = async ({ month, year }, salarieInfo) => {
     if (salarieInfo.role !== 'rh') throw new Error('Accès refusé');
@@ -237,8 +250,8 @@ export const validateBatch = async ({ month, year }, salarieInfo) => {
 
     const drafts = await Bulpaie.findAll({
         where: {
-            month: parseInt(month),
-            year: parseInt(year),
+            month:  parseInt(month),
+            year:   parseInt(year),
             status: 'drafted',
         },
         include: [buildSalarieInclude()],
@@ -249,7 +262,7 @@ export const validateBatch = async ({ month, year }, salarieInfo) => {
     }
 
     let validated = 0;
-    const errors = [];
+    const errors  = [];
 
     for (const bulpaie of drafts) {
         try {
@@ -257,6 +270,15 @@ export const validateBatch = async ({ month, year }, salarieInfo) => {
             const filePath = await generatePayslipPDF(bulpaie);
             await bulpaie.update({ file_path: filePath });
             validated++;
+
+            // Notify each employee
+            createNotification(
+                bulpaie.sal_id,
+                'bulpaie_validated',
+                'Bulletin de paie disponible',
+                `Votre bulletin de paie pour ${month}/${year} a été validé et est disponible au téléchargement.`,
+                bulpaie.id
+            ).catch(() => {});
         } catch (err) {
             errors.push({ id: bulpaie.id, error: err.message });
         }
@@ -265,7 +287,7 @@ export const validateBatch = async ({ month, year }, salarieInfo) => {
     return {
         validated,
         errors: errors.length > 0 ? errors : undefined,
-        month: parseInt(month),
-        year: parseInt(year),
+        month:  parseInt(month),
+        year:   parseInt(year),
     };
 };

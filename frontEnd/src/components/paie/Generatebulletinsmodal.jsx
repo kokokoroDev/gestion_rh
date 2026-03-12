@@ -10,13 +10,11 @@ const currentYear  = new Date().getFullYear()
 const currentMonth = new Date().getMonth() + 1
 const YEARS = Array.from({ length: 3 }, (_, i) => currentYear - i)
 
-// ─── Result panel shown after a successful generation ─────────────────────────
 function ResultPanel({ result, month, year, onClose }) {
   const { created = 0, skipped = 0, warnings = [] } = result
 
   return (
     <div className="space-y-4">
-      {/* Summary row */}
       <div className="grid grid-cols-2 gap-3">
         <div className="flex flex-col items-center justify-center py-4 rounded-xl bg-emerald-50 border border-emerald-200">
           <span className="text-2xl font-bold text-emerald-700">{created}</span>
@@ -64,7 +62,6 @@ function ResultPanel({ result, month, year, onClose }) {
   )
 }
 
-// ─── Main modal ───────────────────────────────────────────────────────────────
 export default function GenerateBulletinsModal({ open, onClose, onSuccess }) {
   const dispatch    = useDispatch()
   const toast       = useToast()
@@ -73,7 +70,7 @@ export default function GenerateBulletinsModal({ open, onClose, onSuccess }) {
 
   const [month, setMonth]   = useState(currentMonth)
   const [year,  setYear]    = useState(currentYear)
-  const [result, setResult] = useState(null)   // null = form view, object = result view
+  const [result, setResult] = useState(null)  
 
   const handleSubmit = async (e) => {
     e.preventDefault()

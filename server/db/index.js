@@ -1,4 +1,7 @@
 import sequelizeCon from "./config/sequelize.js";
+import models from "./models/index.js";
+
+export { models, sequelizeCon };
 
 export const test = async () => {
     try {
