@@ -74,6 +74,19 @@ export const validateBatch = createAsyncThunk(
   }
 )
 
+// NEW — auto-generate draft bulletins for all active employees
+export const generateBatch = createAsyncThunk(
+  'paie/generateBatch',
+  async ({ month, year }, { rejectWithValue }) => {
+    try {
+      const { data } = await paieApi.generateBatch(month, year)
+      return data
+    } catch (err) {
+      return rejectWithValue(err.response?.data?.message ?? 'Erreur')
+    }
+  }
+)
+
 export const deleteBulpaie = createAsyncThunk(
   'paie/delete',
   async (id, { rejectWithValue }) => {
@@ -145,6 +158,11 @@ const paieSlice = createSlice({
       .addCase(validateBatch.fulfilled, (s) => { s.submitting = false })
       .addCase(validateBatch.rejected,  (s, { payload }) => { s.submitting = false; s.submitError = payload })
 
+      // generateBatch — just clear submitting; caller refetches the list
+      .addCase(generateBatch.pending,   submitting)
+      .addCase(generateBatch.fulfilled, (s) => { s.submitting = false })
+      .addCase(generateBatch.rejected,  (s, { payload }) => { s.submitting = false; s.submitError = payload })
+
       .addCase(deleteBulpaie.pending, submitting)
       .addCase(deleteBulpaie.fulfilled, (s, { payload: id }) => {
         s.submitting = false
@@ -157,12 +175,12 @@ const paieSlice = createSlice({
 
 export const { clearSelected, clearError, resetSubmit } = paieSlice.actions
 
-export const selectBulpaies       = (s) => s.paie.items
-export const selectBulpaieTotal   = (s) => s.paie.total
+export const selectBulpaies        = (s) => s.paie.items
+export const selectBulpaieTotal    = (s) => s.paie.total
 export const selectSelectedBulpaie = (s) => s.paie.selected
-export const selectPaieLoading    = (s) => s.paie.loading
-export const selectPaieError      = (s) => s.paie.error
-export const selectPaieSubmitting = (s) => s.paie.submitting
+export const selectPaieLoading     = (s) => s.paie.loading
+export const selectPaieError       = (s) => s.paie.error
+export const selectPaieSubmitting  = (s) => s.paie.submitting
 export const selectPaieSubmitError = (s) => s.paie.submitError
 
 export default paieSlice.reducer

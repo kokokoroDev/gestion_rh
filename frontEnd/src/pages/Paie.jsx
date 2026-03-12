@@ -11,6 +11,7 @@ import Badge from '@/components/ui/Badge'
 import Spinner from '@/components/ui/Spinner'
 import BulpaieForm from '@/components/paie/BulpaieForm'
 import BatchValidateModal from '@/components/paie/BatchValidateModal'
+import GenerateBulletinsModal from '@/components/paie/GenerateBulletinsModal'
 import {
   formatMAD, formatMonthYear,
   PAIE_STATUS_LABELS, PAIE_STATUS_COLORS,
@@ -40,13 +41,14 @@ export default function Paie() {
   const loading    = useSelector(selectPaieLoading)
   const submitting = useSelector(selectPaieSubmitting)
 
-  const [showForm, setShowForm]       = useState(false)
-  const [showBatch, setShowBatch]     = useState(false)
-  const [editing, setEditing]         = useState(null)
-  const [confirmDel, setConfirmDel]   = useState(null)
-  const [downloading, setDownloading] = useState(null)
+  const [showForm, setShowForm]         = useState(false)
+  const [showBatch, setShowBatch]       = useState(false)
+  const [showGenerate, setShowGenerate] = useState(false)  // NEW
+  const [editing, setEditing]           = useState(null)
+  const [confirmDel, setConfirmDel]     = useState(null)
+  const [downloading, setDownloading]   = useState(null)
   // Selection state (RH only) — set of drafted bulletin IDs
-  const [selected, setSelected]       = useState(new Set())
+  const [selected, setSelected]         = useState(new Set())
   const [validatingSelection, setValidatingSelection] = useState(false)
 
   const [filters, setFilters] = useState({ month: '', year: String(currentYear), status: '' })
@@ -122,7 +124,7 @@ export default function Paie() {
   return (
     <div className="space-y-5">
 
-      {/* Header */}
+      {/* ── Header ── */}
       <div className="flex flex-wrap items-center gap-3">
         {/* Selection action bar — replaces normal buttons when rows are selected */}
         {isRH && someSelected ? (
@@ -154,12 +156,21 @@ export default function Paie() {
             <div className="flex-1" />
             {isRH && (
               <>
+                {/* NEW — auto-generate drafts */}
+                <button onClick={() => setShowGenerate(true)} className="btn-secondary">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  Générer bulletins
+                </button>
+
                 <button onClick={() => setShowBatch(true)} className="btn-secondary">
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                   Validation par mois
                 </button>
+
                 <button onClick={() => { setEditing(null); setShowForm(true) }} className="btn-primary">
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
@@ -172,7 +183,7 @@ export default function Paie() {
         )}
       </div>
 
-      {/* Filters */}
+      {/* ── Filters ── */}
       <div className="card flex flex-wrap gap-3">
         <select
           className="input-base w-40"
@@ -212,7 +223,7 @@ export default function Paie() {
         <div className="ml-auto text-sm text-surface-400">{total} résultat{total !== 1 ? 's' : ''}</div>
       </div>
 
-      {/* Table */}
+      {/* ── Table ── */}
       <div className="card p-0 overflow-hidden">
         {loading ? (
           <div className="flex items-center justify-center py-16">
@@ -224,6 +235,14 @@ export default function Paie() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
             <p className="text-sm">Aucun bulletin trouvé</p>
+            {isRH && (
+              <button
+                onClick={() => setShowGenerate(true)}
+                className="btn-secondary text-xs mt-4 mx-auto"
+              >
+                Générer les bulletins du mois
+              </button>
+            )}
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -384,8 +403,22 @@ export default function Paie() {
         )}
       </div>
 
-      <BulpaieForm open={showForm} onClose={() => { setShowForm(false); setEditing(null) }} existing={editing} />
-      <BatchValidateModal open={showBatch} onClose={() => setShowBatch(false)} onSuccess={load} />
+      {/* ── Modals ── */}
+      <BulpaieForm
+        open={showForm}
+        onClose={() => { setShowForm(false); setEditing(null) }}
+        existing={editing}
+      />
+      <BatchValidateModal
+        open={showBatch}
+        onClose={() => setShowBatch(false)}
+        onSuccess={load}
+      />
+      <GenerateBulletinsModal
+        open={showGenerate}
+        onClose={() => setShowGenerate(false)}
+        onSuccess={load}
+      />
     </div>
   )
 }
