@@ -2,8 +2,10 @@ import { Op } from 'sequelize';
 import fs from 'fs';
 import path from 'path';
 import models from '../db/models/index.js';
-import { computeNet, checkAccess, buildSalarieInclude , prevMonthYear } from '../utils/bulpaie.js';
+import { computeNet, checkAccess, buildSalarieInclude, prevMonthYear } from '../utils/bulpaie.js';
 import { generatePayslipPDF } from '../utils/generateBulpaie.js';
+import { createAndNotify } from '../utils/notification.js';
+import { io } from '../index.js';
 
 const { Bulpaie, Salarie, Module } = models;
 
@@ -39,7 +41,7 @@ export const generateMonthlyBulpaies = async (month, year) => {
 
     let generated = 0;
     const skipped = [];
-    const errors  = [];
+    const errors = [];
 
     for (const salarie of salaries) {
         if (existingIds.has(salarie.id)) {
@@ -53,24 +55,23 @@ export const generateMonthlyBulpaies = async (month, year) => {
 
         if (!salaire_brut) {
             skipped.push({
-                id:     salarie.id,
-                name:   `${salarie.prenom} ${salarie.nom}`,
+                id: salarie.id,
+                name: `${salarie.prenom} ${salarie.nom}`,
                 reason: 'aucun_salaire_de_reference',
             });
             continue;
         }
 
-        // 3. Create drafted bulletin
         try {
             await Bulpaie.create({
-                sal_id:       salarie.id,
+                sal_id: salarie.id,
                 salaire_brut,
-                deduction:    0,
-                prime:        null,
-                salaire_net:  computeNet(salaire_brut, 0, 0),
-                month:        m,
-                year:         y,
-                status:       'drafted',
+                deduction: 0,
+                prime: null,
+                salaire_net: computeNet(salaire_brut, 0, 0),
+                month: m,
+                year: y,
+                status: 'drafted',
             });
             generated++;
         } catch (err) {
@@ -78,14 +79,26 @@ export const generateMonthlyBulpaies = async (month, year) => {
         }
     }
 
+    const RHs = await Salarie.findAll({
+        where: { role: 'rh' },
+        attributes: ['id']
+    })
+    RHs.forEach(async (rh) => {
+        await createAndNotify(io, rh.id, 'rh', {
+            type: 'payslip_generated',
+            title: `bulltin des paies generés`,
+            message: `${generated} bulltin(s) de paie son't generé`,
+        })
+    });
+
     return {
         generated,
         skipped_count: skipped.length,
         skipped,
-        error_count:   errors.length,
+        error_count: errors.length,
         errors,
         month: m,
-        year:  y,
+        year: y,
     };
 };
 
@@ -146,7 +159,6 @@ export const updateBulpaie = async (id, data, salarieInfo) => {
     return bulpaie.reload({ include: [buildSalarieInclude()] });
 };
 
-// ─── VALIDATE ────────────────────────────────────────────────────────────────
 
 export const validateBulpaie = async (id, salarieInfo) => {
     if (salarieInfo.role !== 'rh') throw new Error('Accès refusé');
@@ -164,7 +176,6 @@ export const validateBulpaie = async (id, salarieInfo) => {
 
     return bulpaie.reload({ include: [buildSalarieInclude()] });
 };
-// ─── DELETE ──────────────────────────────────────────────────────────────────
 
 export const deleteBulpaie = async (id, salarieInfo) => {
     if (salarieInfo.role !== 'rh') throw new Error('Accès refusé');
@@ -185,6 +196,7 @@ export const getBulpaies = async (filters = {}, salarieInfo) => {
 
     if (role === 'fonctionnaire' || role === 'manager') {
         where.sal_id = callerId;
+        where.status = 'validated'
     } else if (sal_id) {
         where.sal_id = sal_id;
     }

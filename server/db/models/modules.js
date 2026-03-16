@@ -22,7 +22,7 @@ const Module = sequelizeCon.define(
     {
         tableName: 'module',
         timestamps: true,
-        createdAt: 'create_at',
+        createdAt: 'created_at',
         updatedAt: 'updated_at',
     }
 )

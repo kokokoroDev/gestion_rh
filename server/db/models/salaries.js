@@ -1,95 +1,96 @@
 import sequelizeCon from "../config/sequelize.js";
 import { DataTypes } from "sequelize";
 
-const Salarie = sequelizeCon.define('Salarie',
-    {
-    id : {
-        primaryKey : true,
-        type : DataTypes.UUID,
-        defaultValue : DataTypes.UUIDV4,
-        allowNull : false
+const Salarie = sequelizeCon.define('Salarie', {
+    id: {
+        primaryKey: true,
+        type: DataTypes.UUID,
+        defaultValue: DataTypes.UUIDV4,
+        allowNull: false
     },
-    cin : {
-        type : DataTypes.CHAR(8),
-        allowNull : false,
-        unique : true
+    cin: {
+        type: DataTypes.CHAR(8),
+        allowNull: false,
+        unique: true
     },
-    prenom : {
-        type : DataTypes.STRING(25),
-        allowNull : false
+    prenom: {
+        type: DataTypes.STRING(25),
+        allowNull: false
     },
-    nom : {
-        type : DataTypes.STRING(25),
-        allowNull : false
+    nom: {
+        type: DataTypes.STRING(25),
+        allowNull: false
     },
-    email : {
-        type : DataTypes.STRING(75),
-        allowNull : false,
-        unique : true
+    email: {
+        type: DataTypes.STRING(75),
+        allowNull: false,
+        unique: true
     },
-    date_debut : {
-        type : DataTypes.DATEONLY,
-        defaultValue : DataTypes.NOW,
+    date_debut: {
+        type: DataTypes.DATEONLY,
+        defaultValue: DataTypes.NOW,
     },
-    date_fin : {
-        type : DataTypes.DATEONLY,
-        allowNull : true
+    date_fin: {
+        type: DataTypes.DATEONLY,
+        allowNull: true
     },
-    mon_cong : {
-        type : DataTypes.DECIMAL(4,1),
-        defaultValue : 0.0
+    mon_cong: {
+        type: DataTypes.DECIMAL(4,1),
+        defaultValue: 0.0
     },
-    role : {
-        type : DataTypes.ENUM('rh','manager','fonctionnaire'),
-        defaultValue : 'fonctionnaire'
+    salaire_base: {
+        type: DataTypes.DECIMAL(10,2),
+        allowNull: true,
+        defaultValue: 4000.00
     },
-    module_id : {
-        type : DataTypes.UUID,
-        allowNull : true,
-        references : {
-            model : 'Module',
-            key : 'id'
-        },
-        onDelete : 'SET NULL'
+    status: {
+        type: DataTypes.ENUM('active', 'inactive'),
+        defaultValue: 'active'
     },
-    salaire_base : {
-        type : DataTypes.DECIMAL(10,2),
-        allowNull : true,
-        defaultValue : 4000.00
-    },
-    status : {
-        type : DataTypes.ENUM('active' , 'inactive'),
-        defaultValue : 'active'
-    },
-    password : {
-        type : DataTypes.STRING,
-        allowNull : false,
-        validate : {
-            'len' : [6,100]
+    password: {
+        type: DataTypes.STRING,
+        allowNull: false,
+        validate: {
+            len: [6,100]
         }
     }
-},{
-    tableName : 'salarie',
-    timestamps : true,
-    createdAt : 'create_at',
-    deletedAt : 'deleted_at',
-    updatedAt : 'updated_at',
-    paranoid : true
+}, {
+    tableName: 'salarie',
+    timestamps: true,
+    createdAt: 'created_at',
+    deletedAt: 'deleted_at',
+    updatedAt: 'updated_at',
+    paranoid: true
 });
 
 Salarie.associate = (models) => {
-    Salarie.belongsTo(models.Module, {
-        foreignKey : 'module_id',
-        as : 'module'
+    Salarie.belongsToMany(models.Role, {
+        through: models.SalarieRoleModule,
+        foreignKey: 'salarie_id',
+        otherKey: 'role_id',
+        as: 'roles'
     });
-    Salarie.hasMany(models.Conge,{
-        foreignKey : 'sal_id',
-        as : 'conges'
-    })
+
+    Salarie.belongsToMany(models.Module, {
+        through: models.SalarieRoleModule,
+        foreignKey: 'salarie_id',
+        otherKey: 'module_id',
+        as: 'modules'
+    });
+
+    Salarie.hasMany(models.SalarieRoleModule, {
+        foreignKey: 'salarie_id',
+        as: 'roleModules'
+    });
+
+    Salarie.hasMany(models.Conge, {
+        foreignKey: 'sal_id',
+        as: 'conges'
+    });
     Salarie.hasMany(models.Bulpaie, {
-        foreignKey : 'sal_id',
-        as : 'bulletins'
-    })
+        foreignKey: 'sal_id',
+        as: 'bulletins'
+    });
 };
 
 export default Salarie;

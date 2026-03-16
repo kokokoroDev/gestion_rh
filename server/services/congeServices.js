@@ -1,6 +1,8 @@
 import { Op } from 'sequelize';
 import models, { sequelizeCon } from '../db/models/index.js';
 import { buildAccessWhere, overlapCondition, countWorkingDays } from "../utils/conge.js";
+import { createAndNotify } from "../utils/notification.js";
+import { io } from "../index.js";
 
 const { Conge, Salarie, Module } = models;
 
@@ -63,7 +65,6 @@ export const soumettreConge = async (data, salarieId) => {
         }
     }
 
-    // ── Manager conges skip to 'reached' (bypass manager step); RH too ──
     const initialStatus = ['manager', 'rh'].includes(salarie.role) ? 'reached' : 'soumis';
 
     const conge = await Conge.create({
@@ -72,8 +73,23 @@ export const soumettreConge = async (data, salarieId) => {
         date_debut,
         date_fin,
         status: initialStatus,
-        commentaire
+        commentaire : commentaire || null
     });
+
+    if (salarie.module_id) {
+        const manager = await Salarie.findOne({
+            where: { role: 'manager', module_id: salarie.module_id },
+            attributes: ['id']
+        });
+
+        await createAndNotify(io, manager.id, 'manager', {
+            type: 'leave_request_submitted',
+            title: 'Nouvelle demande de congé',
+            message: `${salarie.prenom} ${salarie.nom} a demandé un congé du ${date_debut} au ${date_fin}`,
+            related_entity_id: conge.id,
+            related_entity_type: 'conge'
+        });
+    }
 
     return { conge, warning: teamOverlapWarning };
 };
@@ -172,11 +188,11 @@ export const updateCongeStatus = async (id, newStatus, salarieInfo) => {
     const allowed = {
         manager: {
             reached: ['soumis'],
-            refuse:  ['soumis'],   // FIX 4b: manager can only refuse 'soumis', not 'reached' (already forwarded)
+            refuse: ['soumis'],   // FIX 4b: manager can only refuse 'soumis', not 'reached' (already forwarded)
         },
         rh: {
             accepte: ['soumis', 'reached'],
-            refuse:  ['soumis', 'reached', 'accepte'],
+            refuse: ['soumis', 'reached', 'accepte'],
         },
     };
 
@@ -238,6 +254,23 @@ export const updateCongeStatus = async (id, newStatus, salarieInfo) => {
             ],
             transaction: t,
         });
+    }).then(async (updatedConge) => {
+        // Notify the employee about status change
+        const statusMessages = {
+            accepte: 'Votre demande de congé a été acceptée ✅',
+            refuse: 'Votre demande de congé a été refusée ❌',
+            reached: 'Votre demande de congé a été transférée à RH',
+        };
+
+        await createAndNotify(io, updatedConge.sal_id, 'fonctionnaire', {
+            type: newStatus === 'accepte' ? 'leave_request_approved' : 'leave_request_rejected',
+            title: `Statut de congé: ${newStatus}`,
+            message: statusMessages[newStatus] || `Votre demande a été mise à jour: ${newStatus}`,
+            related_entity_id: updatedConge.id,
+            related_entity_type: 'conge'
+        });
+
+        return updatedConge;
     });
 };
 
