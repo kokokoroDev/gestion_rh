@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import {
     fetchDocumentRequests,
@@ -45,15 +45,15 @@ function Avatar({ prenom = '', nom = '' }) {
     )
 }
 
-// ─── Download button (shared between card and table row) ─────────────────────
-function DownloadBtn({ requestId, fileName }) {
+// ─── Download button ──────────────────────────────────────────────────────────
+function DownloadBtn({ requestId, responseId, fileName, compact = false }) {
     const toast = useToast()
     const [loading, setLoading] = useState(false)
 
     const handleDownload = async () => {
         setLoading(true)
         try {
-            const res = await documentRequestApi.downloadFile(requestId)
+            const res = await documentRequestApi.downloadFile(requestId, responseId)
             downloadBlob(res.data, fileName ?? 'document')
             toast.success('Téléchargement démarré')
         } catch {
@@ -63,83 +63,65 @@ function DownloadBtn({ requestId, fileName }) {
         }
     }
 
+    if (compact) {
+        return (
+            <button onClick={handleDownload} disabled={loading} title={fileName}
+                className="p-1.5 rounded-lg text-azure-500 hover:bg-azure-50 transition-colors disabled:opacity-40">
+                {loading ? <Spinner size="sm" />
+                    : <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                }
+            </button>
+        )
+    }
+
     return (
-        <button
-            onClick={handleDownload}
-            disabled={loading}
-            title="Télécharger le document"
-            className="btn-secondary text-xs px-3 py-1.5 text-azure-600 hover:text-azure-700 flex items-center gap-1.5"
-        >
-            {loading
-                ? <Spinner size="sm" />
+        <button onClick={handleDownload} disabled={loading}
+            className="btn-secondary text-xs px-3 py-1.5 text-azure-600 flex items-center gap-1.5">
+            {loading ? <Spinner size="sm" />
                 : <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                 </svg>
             }
-            Télécharger
+            <span className="max-w-[120px] truncate">{fileName ?? 'Télécharger'}</span>
         </button>
     )
 }
 
-// ─── RH: upload file to an already-treated request ───────────────────────────
-function RHUploadBtn({ request, onDone }) {
-    const toast = useToast()
-    const inputRef = useRef(null)
-    const [loading, setLoading] = useState(false)
-    const [percent, setPercent] = useState(0)
-
-    const handleFile = async (e) => {
-        const file = e.target.files?.[0]
-        if (!file) return
-        setLoading(true)
-        setPercent(0)
-        try {
-            await documentRequestApi.uploadFile(request.id, file, setPercent)
-            toast.success('Fichier déposé avec succès')
-            onDone()
-        } catch (err) {
-            toast.error(err?.response?.data?.message ?? 'Erreur lors de l\'envoi')
-        } finally {
-            setLoading(false)
-            setPercent(0)
-            if (inputRef.current) inputRef.current.value = ''
-        }
-    }
+// ─── Response files section shown in "my requests" card ──────────────────────
+function ResponsesSection({ request }) {
+    const responses = request.responses ?? []
+    if (responses.length === 0) return null
 
     return (
-        <>
-            <button
-                type="button"
-                onClick={() => inputRef.current?.click()}
-                disabled={loading}
-                title={request.file_path ? 'Remplacer le fichier' : 'Déposer un fichier'}
-                className="btn-secondary text-xs px-3 py-1.5 flex items-center gap-1.5"
-            >
-                {loading
-                    ? <><Spinner size="sm" /> {percent > 0 ? `${percent}%` : '…'}</>
-                    : <>
-                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l4-4m0 0l4 4m-4-4v12" />
+        <div className="mt-3 pt-3 border-t border-surface-100 space-y-2">
+            <p className="text-xs font-medium text-surface-500 flex items-center gap-1.5">
+                <svg className="w-3.5 h-3.5 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                {responses.length} document{responses.length > 1 ? 's' : ''} disponible{responses.length > 1 ? 's' : ''}
+            </p>
+            <div className="space-y-1">
+                {responses.map(resp => (
+                    <div key={resp.id} className="flex items-center gap-2 p-2 bg-azure-50 rounded-lg border border-azure-100">
+                        <svg className="w-4 h-4 text-azure-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                         </svg>
-                        {request.file_path ? 'Remplacer' : 'Déposer'}
-                    </>
-                }
-            </button>
-            <input
-                ref={inputRef}
-                type="file"
-                accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx"
-                onChange={handleFile}
-                className="hidden"
-            />
-        </>
+                        <span className="flex-1 text-xs text-azure-700 font-medium truncate">
+                            {resp.file_name ?? 'Document'}
+                        </span>
+                        <DownloadBtn requestId={request.id} responseId={resp.id} fileName={resp.file_name} compact />
+                    </div>
+                ))}
+            </div>
+        </div>
     )
 }
 
 // ─── My request card ──────────────────────────────────────────────────────────
 function MyRequestCard({ request, onCancel, cancelling, confirmCancel, setConfirmCancel }) {
     const canCancel = request.status === 'en_attente'
-    const hasFile = !!request.file_path
 
     return (
         <div className="border border-surface-100 rounded-xl p-4 hover:border-surface-200 hover:shadow-card transition-all space-y-3">
@@ -150,9 +132,7 @@ function MyRequestCard({ request, onCancel, cancelling, confirmCancel, setConfir
                         <p className="text-sm font-semibold text-surface-800">
                             {DOC_DEMANDE_LABELS[request.demande]}
                         </p>
-                        <p className="text-xs text-surface-400 mt-0.5">
-                            {formatDateTime(request.created_at)}
-                        </p>
+                        <p className="text-xs text-surface-400 mt-0.5">{formatDateTime(request.createdAt)}</p>
                     </div>
                 </div>
                 <Badge className={DOC_STATUS_COLORS[request.status]}>
@@ -173,47 +153,28 @@ function MyRequestCard({ request, onCancel, cancelling, confirmCancel, setConfir
                 </div>
             )}
 
-            {/* File actions */}
-            <div className="flex items-center justify-between gap-2 pt-1 border-t border-surface-100">
-                <div>
-                    {hasFile && (
-                        <div className="flex items-center gap-1.5 text-xs text-emerald-600">
-                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                            Document disponible
-                        </div>
-                    )}
-                </div>
-                <div className="flex items-center gap-2">
-                    {hasFile && (
-                        <DownloadBtn requestId={request.id} fileName={request.file_name} />
-                    )}
-                    {canCancel && (
-                        confirmCancel === request.id ? (
-                            <div className="flex gap-1.5">
-                                <button
-                                    onClick={() => onCancel(request.id)}
-                                    disabled={cancelling}
-                                    className="btn-danger text-xs px-3 py-1.5"
-                                >
-                                    {cancelling ? <Spinner size="sm" /> : 'Confirmer'}
-                                </button>
-                                <button onClick={() => setConfirmCancel(null)} className="btn-secondary text-xs px-3 py-1.5">
-                                    Non
-                                </button>
-                            </div>
-                        ) : (
-                            <button
-                                onClick={() => setConfirmCancel(request.id)}
-                                className="btn-ghost text-xs text-rose-500 hover:bg-rose-50 px-3 py-1.5"
-                            >
-                                Annuler
+            <ResponsesSection request={request} />
+
+            {canCancel && (
+                <div className="flex justify-end pt-1 border-t border-surface-100">
+                    {confirmCancel === request.id ? (
+                        <div className="flex gap-1.5">
+                            <button onClick={() => onCancel(request.id)} disabled={cancelling}
+                                className="btn-danger text-xs px-3 py-1.5">
+                                {cancelling ? <Spinner size="sm" /> : 'Confirmer'}
                             </button>
-                        )
+                            <button onClick={() => setConfirmCancel(null)} className="btn-secondary text-xs px-3 py-1.5">
+                                Non
+                            </button>
+                        </div>
+                    ) : (
+                        <button onClick={() => setConfirmCancel(request.id)}
+                            className="btn-ghost text-xs text-rose-500 hover:bg-rose-50 px-3 py-1.5">
+                            Annuler la demande
+                        </button>
                     )}
                 </div>
-            </div>
+            )}
         </div>
     )
 }
@@ -222,7 +183,7 @@ function MyRequestCard({ request, onCancel, cancelling, confirmCancel, setConfir
 export default function Documents() {
     const dispatch = useDispatch()
     const toast = useToast()
-    const { isRH, isManager } = useAuth()
+    const { isRH  , salarie} = useAuth()
 
     const requests = useSelector(selectDocumentRequests)
     const total = useSelector(selectDocumentRequestTotal)
@@ -247,7 +208,6 @@ export default function Documents() {
 
     useEffect(() => { load() }, [load])
 
-    // When switching tabs, reset page and reload
     const switchTab = (key) => { setTab(key); setPage(0) }
 
     const handleCancel = async (id) => {
@@ -259,9 +219,7 @@ export default function Documents() {
     const totalPages = Math.ceil(total / LIMIT)
     const tabs = [
         { key: 'my', label: 'Mes demandes' },
-        ...((isRH || isManager)
-            ? [{ key: 'all', label: isRH ? 'Toutes les demandes' : 'Mon équipe' }]
-            : []),
+        ...(isRH ? [{ key: 'all', label: 'Toutes les demandes' }] : []),
     ]
 
     return (
@@ -271,14 +229,11 @@ export default function Documents() {
             <div className="flex flex-wrap items-center gap-3">
                 <div className="flex bg-surface-100 rounded-xl p-1 gap-1">
                     {tabs.map(t => (
-                        <button
-                            key={t.key}
-                            onClick={() => switchTab(t.key)}
+                        <button key={t.key} onClick={() => switchTab(t.key)}
                             className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${tab === t.key
                                     ? 'bg-white text-surface-800 shadow-card'
                                     : 'text-surface-500 hover:text-surface-700'
-                                }`}
-                        >
+                                }`}>
                             {t.label}
                         </button>
                     ))}
@@ -315,9 +270,7 @@ export default function Documents() {
             {/* ── My tab ── */}
             {tab === 'my' && (
                 loading ? (
-                    <div className="flex items-center justify-center py-16">
-                        <Spinner size="lg" className="text-azure-500" />
-                    </div>
+                    <div className="flex items-center justify-center py-16"><Spinner size="lg" className="text-azure-500" /></div>
                 ) : requests.length === 0 ? (
                     <div className="card text-center py-16 text-surface-400">
                         <div className="text-4xl mb-3">📭</div>
@@ -327,28 +280,35 @@ export default function Documents() {
                         </button>
                     </div>
                 ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        {requests.map(r => (
-                            <MyRequestCard
-                                key={r.id}
-                                request={r}
-                                onCancel={handleCancel}
-                                cancelling={submitting}
-                                confirmCancel={confirmCancel}
-                                setConfirmCancel={setConfirmCancel}
-                            />
-                        ))}
-                    </div>
+                    <>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            {requests.map(r => (
+                                <MyRequestCard key={r.id} request={r}
+                                    onCancel={handleCancel} cancelling={submitting}
+                                    confirmCancel={confirmCancel} setConfirmCancel={setConfirmCancel}
+                                />
+                            ))}
+                        </div>
+                        {totalPages > 1 && (
+                            <div className="flex items-center justify-between">
+                                <p className="text-xs text-surface-400">Page {page + 1} / {totalPages}</p>
+                                <div className="flex gap-2">
+                                    <button onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0}
+                                        className="btn-secondary text-xs px-3 py-1.5">← Préc.</button>
+                                    <button onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))} disabled={page >= totalPages - 1}
+                                        className="btn-secondary text-xs px-3 py-1.5">Suiv. →</button>
+                                </div>
+                            </div>
+                        )}
+                    </>
                 )
             )}
 
-            {/* ── All tab (RH / Manager) ── */}
-            {tab === 'all' && (isRH || isManager) && (
+            {/* ── All tab (RH only) ── */}
+            {tab === 'all' && isRH && (
                 <div className="card p-0 overflow-hidden">
                     {loading ? (
-                        <div className="flex items-center justify-center py-16">
-                            <Spinner size="lg" className="text-azure-500" />
-                        </div>
+                        <div className="flex items-center justify-center py-16"><Spinner size="lg" className="text-azure-500" /></div>
                     ) : requests.length === 0 ? (
                         <div className="text-center py-16 text-surface-400">
                             <div className="text-4xl mb-3">📭</div>
@@ -363,103 +323,97 @@ export default function Documents() {
                                         <th className="text-left text-xs font-semibold text-surface-500 px-5 py-3">Document</th>
                                         <th className="text-left text-xs font-semibold text-surface-500 px-5 py-3">Date</th>
                                         <th className="text-left text-xs font-semibold text-surface-500 px-5 py-3">Statut</th>
-                                        <th className="text-left text-xs font-semibold text-surface-500 px-5 py-3">Fichier</th>
+                                        <th className="text-left text-xs font-semibold text-surface-500 px-5 py-3">Fichiers</th>
                                         <th className="text-right text-xs font-semibold text-surface-500 px-5 py-3">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-surface-50">
-                                    {requests.map(r => (
-                                        <tr key={r.id} className="hover:bg-surface-50 transition-colors">
+                                    {requests.map(r => {
+                                        const responses = r.responses ?? []
+                                        return (
+                                            <tr key={r.id} className="hover:bg-surface-50 transition-colors">
 
-                                            {/* Salarié */}
-                                            <td className="px-5 py-3.5">
-                                                <div className="flex items-center gap-2.5">
-                                                    <Avatar prenom={r.salarie?.prenom} nom={r.salarie?.nom} />
-                                                    <div>
-                                                        <p className="font-medium text-surface-800">
-                                                            {r.salarie ? `${r.salarie.prenom} ${r.salarie.nom}` : '—'}
-                                                        </p>
-                                                        {r.salarie?.roleModules?.[0]?.module?.libelle && (
-                                                            <p className="text-xs text-surface-400">
-                                                                {r.salarie.roleModules[0].module.libelle}
+                                                <td className="px-5 py-3.5">
+                                                    <div className="flex items-center gap-2.5">
+                                                        <Avatar prenom={r.salarie?.prenom} nom={r.salarie?.nom} />
+                                                        <div>
+                                                            <p className="font-medium text-surface-800">
+                                                                {r.salarie ? `${r.salarie.prenom} ${r.salarie.nom}` : '—'}
                                                             </p>
-                                                        )}
+                                                            {r.salarie?.roleModules?.[0]?.module?.libelle && (
+                                                                <p className="text-xs text-surface-400">
+                                                                    {r.salarie.roleModules[0].module.libelle}
+                                                                </p>
+                                                            )}
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            </td>
+                                                </td>
 
-                                            {/* Type */}
-                                            <td className="px-5 py-3.5">
-                                                <div className="flex items-center gap-2">
-                                                    <span>{DOC_DEMANDE_ICONS[r.demande]}</span>
-                                                    <span className="text-surface-700">{DOC_DEMANDE_LABELS[r.demande]}</span>
-                                                </div>
-                                                {r.commentaire && (
-                                                    <p className="text-xs text-surface-400 mt-0.5 max-w-[180px] truncate italic">
-                                                        {r.commentaire}
-                                                    </p>
-                                                )}
-                                            </td>
-
-                                            {/* Date */}
-                                            <td className="px-5 py-3.5 text-surface-500 text-xs font-mono whitespace-nowrap">
-                                                {formatDateTime(r.created_at)}
-                                            </td>
-
-                                            {/* Status */}
-                                            <td className="px-5 py-3.5">
-                                                <Badge className={DOC_STATUS_COLORS[r.status]}>
-                                                    {DOC_STATUS_LABELS[r.status]}
-                                                </Badge>
-                                                {r.reponse && (
-                                                    <p className="text-xs text-surface-400 mt-1 max-w-[160px] truncate italic">
-                                                        {r.reponse}
-                                                    </p>
-                                                )}
-                                            </td>
-
-                                            {/* File column */}
-                                            <td className="px-5 py-3.5">
-                                                {r.file_path ? (
-                                                    <div className="flex items-center gap-1.5">
-                                                        <svg className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                                        </svg>
-                                                        <span className="text-xs text-emerald-600 truncate max-w-[120px]" title={r.file_name}>
-                                                            {r.file_name ?? 'Fichier joint'}
-                                                        </span>
+                                                <td className="px-5 py-3.5">
+                                                    <div className="flex items-center gap-2">
+                                                        <span>{DOC_DEMANDE_ICONS[r.demande]}</span>
+                                                        <span className="text-surface-700">{DOC_DEMANDE_LABELS[r.demande]}</span>
                                                     </div>
-                                                ) : (
-                                                    <span className="text-xs text-surface-400">—</span>
-                                                )}
-                                            </td>
+                                                    {r.commentaire && (
+                                                        <p className="text-xs text-surface-400 mt-0.5 max-w-[180px] truncate italic">
+                                                            {r.commentaire}
+                                                        </p>
+                                                    )}
+                                                </td>
 
-                                            {/* Actions */}
-                                            <td className="px-5 py-3.5">
-                                                <div className="flex items-center justify-end gap-2">
-                                                    {/* RH: treat pending requests */}
-                                                    {isRH && r.status === 'en_attente' && (
+                                                <td className="px-5 py-3.5 text-surface-500 text-xs font-mono whitespace-nowrap">
+                                                    {formatDateTime(r.createdAt)}
+                                                </td>
+
+                                                <td className="px-5 py-3.5">
+                                                    <Badge className={DOC_STATUS_COLORS[r.status]}>
+                                                        {DOC_STATUS_LABELS[r.status]}
+                                                    </Badge>
+                                                    {r.reponse && (
+                                                        <p className="text-xs text-surface-400 mt-1 max-w-[160px] truncate italic">
+                                                            {r.reponse}
+                                                        </p>
+                                                    )}
+                                                </td>
+
+                                                {/* Files count badge + quick download for first file */}
+                                                <td className="px-5 py-3.5">
+                                                    {responses.length === 0 ? (
+                                                        <span className="text-xs text-surface-400">—</span>
+                                                    ) : (
+                                                        <div className="flex items-center gap-1.5">
+                                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-xs font-medium">
+                                                                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                                                </svg>
+                                                                {responses.length}
+                                                            </span>
+                                                            {responses.map(resp => (
+                                                                <DownloadBtn key={resp.id}
+                                                                    requestId={r.id} responseId={resp.id}
+                                                                    fileName={resp.file_name} compact />
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </td>
+
+                                                <td className="px-5 py-3.5 text-right">
+                                                    {/* Single button opens modal in treat OR edit mode */}
+                                                    {r.status !== 'refuse' && (
                                                         <button
                                                             onClick={() => setSelected(r)}
-                                                            className="btn-secondary text-xs px-3 py-1.5"
+                                                            className={`text-xs px-3 py-1.5 ${r.status === 'en_attente'
+                                                                    ? 'btn-primary'
+                                                                    : 'btn-secondary'
+                                                                }`}
                                                         >
-                                                            Traiter
+                                                            {r.status === 'en_attente' ? 'Traiter' : 'Modifier'}
                                                         </button>
                                                     )}
-
-                                                    {/* RH: upload/replace file on any request */}
-                                                    {isRH && r.status !== 'refuse' && (
-                                                        <RHUploadBtn request={r} onDone={load} />
-                                                    )}
-
-                                                    {/* Download if file exists */}
-                                                    {r.file_path && (
-                                                        <DownloadBtn requestId={r.id} fileName={r.file_name} />
-                                                    )}
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))}
+                                                </td>
+                                            </tr>
+                                        )
+                                    })}
                                 </tbody>
                             </table>
                         </div>

@@ -13,6 +13,9 @@ export const documentRequestApi = {
     updateStatus: (id, status, reponse) =>
         api.patch(`/docs/${id}/status`, { status, reponse }),
 
+    updateReponse: (id, reponse) =>
+        api.patch(`/docs/${id}/reponse`, { reponse }),
+
     uploadFile: (id, file, onProgress) => {
         const form = new FormData()
         form.append('file', file)
@@ -24,8 +27,11 @@ export const documentRequestApi = {
         })
     },
 
-    downloadFile: (id) =>
-        api.get(`/docs/${id}/file`, { responseType: 'blob' }),
+    downloadFile: (requestId, responseId) =>
+        api.get(`/docs/${requestId}/file/${responseId}`, { responseType: 'blob' }),
+
+    deleteFile: (requestId, responseId) =>
+        api.delete(`/docs/${requestId}/file/${responseId}`),
 
     cancel: (id) =>
         api.delete(`/docs/${id}`),

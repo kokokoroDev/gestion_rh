@@ -13,11 +13,16 @@ const DocumentResponses = sequelizeCon.define(
         req_id: {
             type: DataTypes.UUID,
             allowNull: false,
-            references: { model: 'DocumentRequest', key: 'id' },
+            references: { model: 'document_request', key: 'id' },
+            onDelete: 'CASCADE'
         },
-        filepath : {
-            type : DataTypes.TEXT,
-            allowNull : false
+        filepath: {
+            type: DataTypes.TEXT,
+            allowNull: false
+        },
+        file_name: {
+            type: DataTypes.STRING(255),
+            allowNull: true
         }
     },
     {
@@ -29,7 +34,7 @@ const DocumentResponses = sequelizeCon.define(
 
 DocumentResponses.associate = (models) => {
     DocumentResponses.belongsTo(models.DocumentRequest, {
-        foreignKey: 'req_id', 
+        foreignKey: 'req_id',
         as: 'request'
     });
 };

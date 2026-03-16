@@ -6,11 +6,13 @@ import Module            from "./modules.js";
 import Bulpaie           from "./bulpaie.js";
 import Notification      from "./notification.js";
 import DocumentRequest   from "./doc_demand.js";
+import DocumentResponses from "./doc_responses.js";
 import sequelizeCon      from "../config/sequelize.js";
 
 const models = {
     Salarie,
     DocumentRequest,
+    DocumentResponses,
     Role,
     SalarieRoleModule,
     Conge,

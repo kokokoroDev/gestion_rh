@@ -27,6 +27,10 @@ const DocumentRequest = sequelizeCon.define(
         commentaire: {
             type: DataTypes.TEXT,
             allowNull: true
+        },
+        reponse: {
+            type: DataTypes.TEXT,
+            allowNull: true
         }
     },
     {
@@ -38,8 +42,13 @@ const DocumentRequest = sequelizeCon.define(
 
 DocumentRequest.associate = (models) => {
     DocumentRequest.belongsTo(models.Salarie, {
-        foreignKey: 'sal_id', 
+        foreignKey: 'sal_id',
         as: 'salarie'
+    });
+    DocumentRequest.hasMany(models.DocumentResponses, {
+        foreignKey: 'req_id',
+        as: 'responses',
+        onDelete: 'CASCADE'
     });
 };
 
