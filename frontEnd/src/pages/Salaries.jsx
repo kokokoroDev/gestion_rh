@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import {
     fetchSalaries, fetchTeam, deleteSalarie,
@@ -23,10 +23,34 @@ function Avatar({ prenom = '', nom = '' }) {
     )
 }
 
+// ─── All role+module pairs for a salarie in compact badge format ───────────────
+function RoleModuleBadges({ roleModules = [] }) {
+    if (!roleModules.length) return null
+    return (
+        <div className="flex flex-wrap gap-1 mt-2">
+            {roleModules.map((rm) => {
+                const roleName    = rm.roleRef?.name
+                const moduleLabel = rm.module?.libelle
+                return (
+                    <span
+                        key={rm.id}
+                        className={`badge ${ROLE_COLORS[roleName] ?? 'bg-surface-100 text-surface-600'}`}
+                    >
+                        {ROLE_LABELS[roleName] ?? roleName}
+                        {moduleLabel && (
+                            <span className="opacity-70 ml-1">· {moduleLabel}</span>
+                        )}
+                    </span>
+                )
+            })}
+        </div>
+    )
+}
+
 export default function Salaries() {
     const dispatch = useDispatch()
     const toast    = useToast()
-    const { isRH, isManager, isFonctionnaire } = useAuth()
+    const { isRH, isManager, isFonctionnaire, salarie } = useAuth()
 
     const salaries = useSelector(selectSalaries)
     const total    = useSelector(selectSalarieTotal)
@@ -36,37 +60,60 @@ export default function Salaries() {
     const [debouncedSearch, setDebouncedSearch] = useState('')
     const [filters,         setFilters]         = useState({ role: '', status: 'active' })
     const [page,            setPage]            = useState(0)
+    const [moduleFilter,    setModuleFilter]    = useState('')   // manager multi-module filter
 
-    const [showForm,  setShowForm]  = useState(false)
-    const [editing,   setEditing]   = useState(null)
-    const [detailId,  setDetailId]  = useState(null)
-    const [confirmDel,setConfirmDel]= useState(null)
-    const [deleting,  setDeleting]  = useState(false)
+    const [showForm,   setShowForm]   = useState(false)
+    const [editing,    setEditing]    = useState(null)
+    const [detailId,   setDetailId]   = useState(null)
+    const [confirmDel, setConfirmDel] = useState(null)
+    const [deleting,   setDeleting]   = useState(false)
 
-    // Debounce search
+    // ── Compute manager's own modules (for the filter dropdown) ───────────────
+    const managerModules = useMemo(() => {
+        if (!salarie?.roleModules) return []
+        const seen = new Map()
+        for (const rm of salarie.roleModules) {
+            if (rm.roleRef?.name === 'manager' && rm.module_id && !seen.has(rm.module_id)) {
+                seen.set(rm.module_id, {
+                    id:      rm.module_id,
+                    libelle: rm.module?.libelle ?? rm.module_id,
+                })
+            }
+        }
+        return [...seen.values()]
+    }, [salarie])
+
+    // ── Debounce search ───────────────────────────────────────────────────────
     useEffect(() => {
         const t = setTimeout(() => { setDebouncedSearch(search); setPage(0) }, 350)
         return () => clearTimeout(t)
     }, [search])
 
+    // ── Load ──────────────────────────────────────────────────────────────────
     const load = useCallback(() => {
-        const params = {
-            limit:  LIMIT,
-            offset: page * LIMIT,
-            ...(debouncedSearch ? { search: debouncedSearch } : {}),
-            ...(filters.role   ? { role:   filters.role }    : {}),
-            ...(filters.status ? { status: filters.status }  : {}),
-        }
-        // Manager sees only their own team; RH sees everyone.
-        // fetchTeam now populates items/total so selectSalaries works uniformly.
         if (isManager && !isRH) {
             dispatch(fetchTeam())
         } else {
+            const params = {
+                limit:  LIMIT,
+                offset: page * LIMIT,
+                ...(debouncedSearch ? { search: debouncedSearch } : {}),
+                ...(filters.role   ? { role:   filters.role }    : {}),
+                ...(filters.status ? { status: filters.status }  : {}),
+            }
             dispatch(fetchSalaries(params))
         }
     }, [dispatch, filters, page, debouncedSearch, isRH, isManager])
 
     useEffect(() => { load() }, [load])
+
+    // ── Client-side module filter for managers with multiple modules ──────────
+    const displaySalaries = useMemo(() => {
+        if (!moduleFilter || !isManager || isRH) return salaries
+        return salaries.filter(s =>
+            s.roleModules?.some(rm => rm.module_id === moduleFilter)
+        )
+    }, [salaries, moduleFilter, isManager, isRH])
 
     const handleDelete = async (id) => {
         setDeleting(true)
@@ -76,8 +123,8 @@ export default function Salaries() {
         setConfirmDel(null)
     }
 
-    const openEdit   = (s) => { setEditing(s); setShowForm(true) }
-    const closeForm  = () => { setShowForm(false); setEditing(null); load() }
+    const openEdit    = (s) => { setEditing(s); setShowForm(true) }
+    const closeForm   = () => { setShowForm(false); setEditing(null); load() }
     const closeDetail = () => { setDetailId(null); dispatch(clearSelected()) }
 
     const totalPages = Math.ceil(total / LIMIT)
@@ -101,21 +148,46 @@ export default function Salaries() {
     return (
         <div className="space-y-5">
 
-            {/* Header */}
+            {/* ── Header ── */}
             <div className="flex flex-wrap items-center gap-3">
-                <div className="relative flex-1 min-w-[200px] max-w-xs">
-                    <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-surface-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z" />
-                    </svg>
-                    <input type="text" className="input-base pl-9" placeholder="Rechercher…"
-                        value={search} onChange={(e) => setSearch(e.target.value)} />
-                </div>
+                {/* Search (RH only — managers see a fixed team) */}
+                {isRH && (
+                    <div className="relative flex-1 min-w-[200px] max-w-xs">
+                        <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-surface-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z" />
+                        </svg>
+                        <input type="text" className="input-base pl-9" placeholder="Rechercher…"
+                            value={search} onChange={(e) => setSearch(e.target.value)} />
+                    </div>
+                )}
+
+                {/* Module filter for managers with multiple modules */}
+                {isManager && !isRH && managerModules.length > 1 && (
+                    <select
+                        className="input-base w-44"
+                        value={moduleFilter}
+                        onChange={(e) => setModuleFilter(e.target.value)}
+                    >
+                        <option value="">Tous mes modules</option>
+                        {managerModules.map(m => (
+                            <option key={m.id} value={m.id}>{m.libelle}</option>
+                        ))}
+                    </select>
+                )}
+
                 <div className="flex-1" />
-                {isManager && !isRH && (
+
+                {isManager && !isRH && managerModules.length === 1 && (
+                    <span className="text-xs text-surface-400 bg-surface-100 px-3 py-1.5 rounded-xl">
+                        Module: {managerModules[0].libelle}
+                    </span>
+                )}
+                {isManager && !isRH && managerModules.length === 0 && (
                     <span className="text-xs text-surface-400 bg-surface-100 px-3 py-1.5 rounded-xl">
                         Mon équipe uniquement
                     </span>
                 )}
+
                 {(isRH || isManager) && (
                     <button onClick={() => { setEditing(null); setShowForm(true) }} className="btn-primary">
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -126,35 +198,36 @@ export default function Salaries() {
                 )}
             </div>
 
-            {/* Filters */}
-            <div className="card flex flex-wrap gap-3">
-                {isRH && (
+            {/* ── Filters (RH only) ── */}
+            {isRH && (
+                <div className="card flex flex-wrap gap-3">
                     <select className="input-base w-44" value={filters.role}
                         onChange={(e) => { setFilters((f) => ({ ...f, role: e.target.value })); setPage(0) }}>
                         <option value="">Tous rôles</option>
+                        <option value="rh">RH</option>
                         <option value="manager">Manager</option>
                         <option value="fonctionnaire">Fonctionnaire</option>
                     </select>
-                )}
-                <select className="input-base w-40" value={filters.status}
-                    onChange={(e) => { setFilters((f) => ({ ...f, status: e.target.value })); setPage(0) }}>
-                    <option value="active">Actifs</option>
-                    <option value="inactive">Inactifs</option>
-                    <option value="">Tous</option>
-                </select>
-                <button onClick={() => { setFilters({ role: '', status: 'active' }); setSearch(''); setPage(0) }}
-                    className="btn-ghost text-sm">Réinitialiser</button>
-                <div className="ml-auto text-sm text-surface-400">
-                    {total} salarié{total !== 1 ? 's' : ''}
+                    <select className="input-base w-40" value={filters.status}
+                        onChange={(e) => { setFilters((f) => ({ ...f, status: e.target.value })); setPage(0) }}>
+                        <option value="active">Actifs</option>
+                        <option value="inactive">Inactifs</option>
+                        <option value="">Tous</option>
+                    </select>
+                    <button onClick={() => { setFilters({ role: '', status: 'active' }); setSearch(''); setPage(0) }}
+                        className="btn-ghost text-sm">Réinitialiser</button>
+                    <div className="ml-auto text-sm text-surface-400">
+                        {total} salarié{total !== 1 ? 's' : ''}
+                    </div>
                 </div>
-            </div>
+            )}
 
-            {/* Cards */}
+            {/* ── Cards ── */}
             {loading ? (
                 <div className="flex items-center justify-center py-16">
                     <Spinner size="lg" className="text-azure-500" />
                 </div>
-            ) : salaries.length === 0 ? (
+            ) : displaySalaries.length === 0 ? (
                 <div className="card text-center py-16 text-surface-400">
                     <svg className="w-10 h-10 mx-auto mb-3 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -163,82 +236,68 @@ export default function Salaries() {
                 </div>
             ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-                    {salaries.map((s) => {
-                        // Derive role and modules from roleModules — no flat fields
-                        const primaryRole  = getPrimaryRole(s)
-                        const sModules     = getUniqueModules(s)
+                    {displaySalaries.map((s) => (
+                        <div key={s.id}
+                            className="card hover:shadow-card-lg transition-shadow cursor-pointer group"
+                            onClick={() => setDetailId(s.id)}>
+                            <div className="flex items-start gap-3">
+                                <Avatar prenom={s.prenom} nom={s.nom} />
+                                <div className="flex-1 min-w-0">
+                                    <p className="font-semibold text-surface-900 truncate group-hover:text-azure-700 transition-colors">
+                                        {s.prenom} {s.nom}
+                                    </p>
+                                    <p className="text-xs text-surface-400 truncate mt-0.5">{s.email}</p>
 
-                        return (
-                            <div key={s.id}
-                                className="card hover:shadow-card-lg transition-shadow cursor-pointer group"
-                                onClick={() => setDetailId(s.id)}>
-                                <div className="flex items-start gap-3">
-                                    <Avatar prenom={s.prenom} nom={s.nom} />
-                                    <div className="flex-1 min-w-0">
-                                        <p className="font-semibold text-surface-900 truncate group-hover:text-azure-700 transition-colors">
-                                            {s.prenom} {s.nom}
-                                        </p>
-                                        <p className="text-xs text-surface-400 truncate mt-0.5">{s.email}</p>
-                                        <div className="flex items-center gap-1.5 mt-2 flex-wrap">
-                                            {/* Role badge from roleModules */}
-                                            <Badge className={ROLE_COLORS[primaryRole]}>
-                                                {ROLE_LABELS[primaryRole]}
-                                            </Badge>
-                                            {/* Module badges from roleModules */}
-                                            {sModules.map((m) => (
-                                                <Badge key={m.id} className="bg-surface-100 text-surface-500">
-                                                    {m.libelle}
-                                                </Badge>
-                                            ))}
-                                            {s.status === 'inactive' && (
-                                                <Badge className="bg-rose-100 text-rose-500">Inactif</Badge>
-                                            )}
-                                        </div>
-                                    </div>
+                                    {/* All role/module pairs */}
+                                    <RoleModuleBadges roleModules={s.roleModules} />
+
+                                    {s.status === 'inactive' && (
+                                        <span className="badge bg-rose-100 text-rose-500 mt-1">Inactif</span>
+                                    )}
                                 </div>
-
-                                <div className="mt-4 pt-3 border-t border-surface-100 flex items-center justify-between">
-                                    <div className="text-xs text-surface-400">
-                                        Depuis {formatDate(s.date_debut)}
-                                    </div>
-                                    <div className="flex items-center gap-1.5 text-xs font-medium text-emerald-600">
-                                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                            <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                        </svg>
-                                        {s.mon_cong} j de congés
-                                    </div>
-                                </div>
-
-                                {isRH && (
-                                    <div className="mt-3 flex gap-2" onClick={(e) => e.stopPropagation()}>
-                                        <button onClick={() => openEdit(s)} className="btn-secondary text-xs flex-1 py-1.5">
-                                            Modifier
-                                        </button>
-                                        {confirmDel === s.id ? (
-                                            <>
-                                                <button onClick={() => handleDelete(s.id)} disabled={deleting}
-                                                    className="btn-danger text-xs flex-1 py-1.5">
-                                                    {deleting ? <Spinner size="sm" /> : 'Confirmer'}
-                                                </button>
-                                                <button onClick={() => setConfirmDel(null)}
-                                                    className="btn-secondary text-xs py-1.5 px-3">Non</button>
-                                            </>
-                                        ) : (
-                                            <button onClick={() => setConfirmDel(s.id)}
-                                                className="btn-ghost text-xs text-rose-500 hover:bg-rose-50 py-1.5 px-3">
-                                                Suppr.
-                                            </button>
-                                        )}
-                                    </div>
-                                )}
                             </div>
-                        )
-                    })}
+
+                            <div className="mt-4 pt-3 border-t border-surface-100 flex items-center justify-between">
+                                <div className="text-xs text-surface-400">
+                                    Depuis {formatDate(s.date_debut)}
+                                </div>
+                                <div className="flex items-center gap-1.5 text-xs font-medium text-emerald-600">
+                                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                    </svg>
+                                    {s.mon_cong} j de congés
+                                </div>
+                            </div>
+
+                            {isRH && (
+                                <div className="mt-3 flex gap-2" onClick={(e) => e.stopPropagation()}>
+                                    <button onClick={() => openEdit(s)} className="btn-secondary text-xs flex-1 py-1.5">
+                                        Modifier
+                                    </button>
+                                    {confirmDel === s.id ? (
+                                        <>
+                                            <button onClick={() => handleDelete(s.id)} disabled={deleting}
+                                                className="btn-danger text-xs flex-1 py-1.5">
+                                                {deleting ? <Spinner size="sm" /> : 'Confirmer'}
+                                            </button>
+                                            <button onClick={() => setConfirmDel(null)}
+                                                className="btn-secondary text-xs py-1.5 px-3">Non</button>
+                                        </>
+                                    ) : (
+                                        <button onClick={() => setConfirmDel(s.id)}
+                                            className="btn-ghost text-xs text-rose-500 hover:bg-rose-50 py-1.5 px-3">
+                                            Suppr.
+                                        </button>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    ))}
                 </div>
             )}
 
-            {/* Pagination */}
-            {totalPages > 1 && (
+            {/* ── Pagination (RH only — managers load full team) ── */}
+            {isRH && totalPages > 1 && (
                 <div className="flex items-center justify-between">
                     <p className="text-xs text-surface-400">Page {page + 1} / {totalPages}</p>
                     <div className="flex gap-2">

@@ -33,7 +33,7 @@ const SalarieRoleModule = sequelizeCon.define('SalarieRoleModule', {
     indexes: [
         {
             unique: true,
-            fields: ['sal_id', 'role_id', 'module_id']
+            fields: ['sal_id', 'module_id']
         }
     ]
 });

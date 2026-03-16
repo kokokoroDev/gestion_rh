@@ -52,6 +52,15 @@ export const updateSalarie = async (req, res) => {
     }
 };
 
+export const deleteRoleModule = async (req, res) => {
+    try {
+        await salarieService.deleteRoleModule(req.params.id, req.params.roleModuleId);
+        res.status(204).send();
+    } catch (error) {
+        res.status(400).json({ message: error.message });
+    }
+};
+
 export const deleteSalarie = async (req, res) => {
     try {
         await salarieService.deleteSalarie(req.params.id);

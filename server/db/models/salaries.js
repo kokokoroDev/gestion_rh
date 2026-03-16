@@ -1,7 +1,6 @@
 import sequelizeCon from "../config/sequelize.js";
 import { DataTypes } from "sequelize";
 
-// role and module_id columns have been removed — they now live in salarie_role_module.
 const Salarie = sequelizeCon.define('Salarie', {
     id: {
         primaryKey:   true,

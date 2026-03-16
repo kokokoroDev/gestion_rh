@@ -1,7 +1,7 @@
 import { Op } from "sequelize";
 import models from "../db/models/index.js";
 import { hashPassword } from "../utils/auth.js";
-import { isRH, isManager, getManagerModuleIds } from "../utils/role.js";  
+import { isRH, isManager, getManagerModuleIds } from "../utils/role.js";
 
 const { Salarie, SalarieRoleModule, Role, Module, Conge, Bulpaie } = models;
 
@@ -24,14 +24,23 @@ const getRoleId = async (roleName) => {
     return role.id;
 };
 
-const assureUniqueManager = async (module_id, managerRoleId) => {
-    if (!module_id) return;
+/**
+ * Ensures a (sal_id, module_id) pair holds at most one role.
+ * Creates a new row if none exists, updates in-place otherwise.
+ */
+const upsertRoleForModule = async (sal_id, role_id, module_id) => {
     const existing = await SalarieRoleModule.findOne({
-        where: { module_id, role_id: managerRoleId },
+        where: { sal_id, module_id: module_id ?? null }
     });
-    if (!existing) return;
-    const fonctionnaireRoleId = await getRoleId('fonctionnaire');
-    await existing.update({ role_id: fonctionnaireRoleId });
+
+    if (!existing) {
+        return SalarieRoleModule.create({ sal_id, role_id, module_id: module_id ?? null });
+    }
+
+    if (existing.role_id === role_id) return existing;
+
+    await existing.update({ role_id });
+    return existing;
 };
 
 // ─── Public API ───────────────────────────────────────────────────────────────
@@ -145,18 +154,13 @@ export const getManagerTeam = async (managerId) => {
 };
 
 export const createSalarie = async (data, salarieInfo) => {
-    const {
-        email, cin, module_id,
-        changeManager = false,
-        role: requestedRole = 'fonctionnaire',
-    } = data;
+    const { email, cin, module_id, role: requestedRole = 'fonctionnaire' } = data;
 
     const callerRoles   = salarieInfo.roles ?? [];
     const callerIsRH    = isRH({ roles: callerRoles });
     const callerModules = getManagerModuleIds({ roles: callerRoles });
 
     let finalModuleId = module_id ?? null;
-
     if (!callerIsRH) {
         if (!callerModules.length) {
             throw new Error("Vous n'êtes pas associé à un module. Impossible de créer un salarié.");
@@ -167,9 +171,7 @@ export const createSalarie = async (data, salarieInfo) => {
         if (!finalModuleId) finalModuleId = callerModules[0];
     }
 
-    const existing = await Salarie.findOne({
-        where: { [Op.or]: [{ email }, { cin }] },
-    });
+    const existing = await Salarie.findOne({ where: { [Op.or]: [{ email }, { cin }] } });
     if (existing) {
         if (existing.email === email) throw new Error('Cet email est déjà utilisé');
         if (existing.cin   === cin)   throw new Error('Ce CIN est déjà utilisé');
@@ -180,19 +182,11 @@ export const createSalarie = async (data, salarieInfo) => {
         if (!moduleExists) throw new Error('Module non trouvé');
     }
 
-    const managerRoleId       = await getRoleId('manager');
-    const fonctionnaireRoleId = await getRoleId('fonctionnaire');
+    const validRoles = callerIsRH ? ['rh', 'manager', 'fonctionnaire'] : ['fonctionnaire', 'manager'];
+    if (!validRoles.includes(requestedRole)) throw new Error(`Rôle "${requestedRole}" non autorisé`);
 
-    let finalRoleId = fonctionnaireRoleId;
-
-    if (requestedRole === 'manager' && changeManager) {
-        await assureUniqueManager(finalModuleId, managerRoleId);
-        finalRoleId = managerRoleId;
-    } else if (requestedRole === 'rh') {
-        finalRoleId = await getRoleId('rh');
-    }
-
-    const password = await hashPassword(data.password);
+    const finalRoleId = await getRoleId(requestedRole);
+    const password    = await hashPassword(data.password);
 
     const salarie = await Salarie.create({
         cin:          data.cin,
@@ -207,11 +201,7 @@ export const createSalarie = async (data, salarieInfo) => {
         password,
     });
 
-    await SalarieRoleModule.create({
-        sal_id:    salarie.id,
-        role_id:   finalRoleId,
-        module_id: finalModuleId,
-    });
+    await upsertRoleForModule(salarie.id, finalRoleId, finalModuleId);
 
     const { password: _pwd, deleted_at, ...safeData } = salarie.toJSON();
     return safeData;
@@ -221,7 +211,7 @@ export const updateSalarie = async (id, data) => {
     const salarie = await Salarie.findByPk(id);
     if (!salarie) throw new Error('Salarié non trouvé');
 
-    const { email, cin, password, module_id, role: newRole, changeManager = false, ...rest } = data;
+    const { email, cin, password, module_id, role: newRole, ...rest } = data;
 
     if (email && email !== salarie.email) {
         const existingEmail = await Salarie.findOne({ where: { email } });
@@ -245,46 +235,57 @@ export const updateSalarie = async (id, data) => {
             if (!moduleExists) throw new Error('Module non trouvé');
         }
 
-        const existingAssignment = await SalarieRoleModule.findOne({ where: { sal_id: id } });
+        if (newRole !== undefined && module_id !== undefined) {
+            // Case A: explicit (role, module) upsert
+            const roleId = await getRoleId(newRole);
+            await upsertRoleForModule(id, roleId, module_id);
 
-        if (newRole === 'manager' && changeManager) {
-            const managerRoleId = await getRoleId('manager');
-            await assureUniqueManager(module_id ?? existingAssignment?.module_id, managerRoleId);
-            if (existingAssignment) {
-                await existingAssignment.update({
-                    role_id:   managerRoleId,
-                    module_id: module_id ?? existingAssignment.module_id,
-                });
+        } else if (newRole !== undefined) {
+            // Case B: update role on all existing assignments
+            const roleId     = await getRoleId(newRole);
+            const assignments = await SalarieRoleModule.findAll({ where: { sal_id: id } });
+            if (assignments.length === 0) {
+                await upsertRoleForModule(id, roleId, null);
             } else {
-                await SalarieRoleModule.create({ sal_id: id, role_id: managerRoleId, module_id: module_id ?? null });
+                for (const rm of assignments) await rm.update({ role_id: roleId });
             }
-        } else if (newRole) {
-            const targetRoleId = await getRoleId(
-                newRole === 'manager' && !changeManager ? 'fonctionnaire' : newRole
-            );
-            if (existingAssignment) {
-                await existingAssignment.update({
-                    role_id:   targetRoleId,
-                    module_id: module_id ?? existingAssignment.module_id,
+
+        } else if (module_id !== undefined) {
+            // Case C: change module on first assignment (keeping role)
+            const first = await SalarieRoleModule.findOne({ where: { sal_id: id } });
+            if (first) {
+                const conflict = await SalarieRoleModule.findOne({
+                    where: { sal_id: id, module_id, id: { [Op.ne]: first.id } }
                 });
+                if (conflict) throw new Error('Ce salarié est déjà rattaché à ce module');
+                await first.update({ module_id });
             } else {
-                await SalarieRoleModule.create({ sal_id: id, role_id: targetRoleId, module_id: module_id ?? null });
+                const fonctionnaireId = await getRoleId('fonctionnaire');
+                await upsertRoleForModule(id, fonctionnaireId, module_id);
             }
-        } else if (module_id && existingAssignment) {
-            await existingAssignment.update({ module_id });
         }
     }
 
-    return salarie.reload({
-        include: [{
-            model:   SalarieRoleModule,
-            as:      'roleModules',
-            include: [
-                { model: Role,   as: 'roleRef', attributes: ['name']          },
-                { model: Module, as: 'module',  attributes: ['id', 'libelle'] },
-            ],
-        }],
+    return salarie.reload({ include: [roleModulesInclude] });
+};
+
+/**
+ * Remove a specific role-module assignment row.
+ * Guards against leaving a salarie with zero assignments.
+ */
+export const deleteRoleModule = async (salarieId, roleModuleId) => {
+    const count = await SalarieRoleModule.count({ where: { sal_id: salarieId } });
+    if (count <= 1) {
+        throw new Error('Impossible de supprimer la dernière affectation — un salarié doit conserver au moins un rôle');
+    }
+
+    const assignment = await SalarieRoleModule.findOne({
+        where: { id: roleModuleId, sal_id: salarieId }
     });
+    if (!assignment) throw new Error('Affectation non trouvée');
+
+    await assignment.destroy();
+    return true;
 };
 
 export const deleteSalarie = async (id) => {

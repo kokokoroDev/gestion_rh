@@ -5,28 +5,32 @@ import { useToast } from '@/hooks/useToast'
 import Modal from '@/components/ui/Modal'
 import Spinner from '@/components/ui/Spinner'
 
+
+// do this first other add specefic event for the leave request besides the comment
+
 const TYPES = [
-  { value: 'vacance',      label: 'Congé payé' },
-  { value: 'maladie',      label: 'Maladie' },
-  { value: 'maternite',    label: 'Maternité' },
-  { value: 'paternite',    label: 'Paternité' },
-  { value: 'sans_solde',   label: 'Sans solde' },
+  { value: 'vacance', label: 'Congé payé' },
+  { value: 'sans_solde', label: 'Sans solde' },
+  { value: 'maladie', label: 'Maladie' },
+  { value: 'maternite', label: 'Maternité' },
+  { value: 'paternite', label: 'Paternité' },
   { value: 'exceptionnel', label: 'Exceptionnel' },
-  { value: 'formation',    label: 'Formation' },
+  { value: 'formation', label: 'Formation' },
+  { value: '', label: 'other' }
 ]
 
 const today = () => new Date().toISOString().split('T')[0]
 
 export default function CongeForm({ open, onClose }) {
-  const dispatch    = useDispatch()
-  const toast       = useToast()
-  const submitting  = useSelector(selectCongeSubmitting)
+  const dispatch = useDispatch()
+  const toast = useToast()
+  const submitting = useSelector(selectCongeSubmitting)
   const submitError = useSelector(selectCongeSubmitError)
 
   const [form, setForm] = useState({
-    type_conge:  'vacance',
-    date_debut:  today(),
-    date_fin:    today(),
+    type_conge: 'vacance',
+    date_debut: today(),
+    date_fin: today(),
     commentaire: '',
   })
 

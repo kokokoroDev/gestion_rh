@@ -27,6 +27,12 @@ const IconSalaries = () => (
             d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
     </svg>
 )
+const IconDocuments = () => (
+    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+        <path strokeLinecap="round" strokeLinejoin="round"
+            d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" />
+    </svg>
+)
 const IconLogout = () => (
     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
         <path strokeLinecap="round" strokeLinejoin="round"
@@ -40,13 +46,13 @@ function NavItem({ to, icon, label, end = false }) {
             to={to}
             end={end}
             className={({ isActive }) => `
-        flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium
-        transition-all duration-150 group
-        ${isActive
+                flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium
+                transition-all duration-150 group
+                ${isActive
                     ? 'bg-azure-600 text-white shadow-glow'
                     : 'text-slate-300 hover:bg-white/10 hover:text-white'
                 }
-      `}
+            `}
         >
             <span className="flex-shrink-0">{icon}</span>
             <span className="truncate">{label}</span>
@@ -55,13 +61,13 @@ function NavItem({ to, icon, label, end = false }) {
 }
 
 export default function Sidebar({ mobile = false, onClose }) {
-    // role/isRH/isManager are all derived from roleModules inside useAuth
     const { salarie, role, isRH, isManager, logout } = useAuth()
 
     const nav = [
         { to: '/dashboard', icon: <IconDashboard />, label: 'Tableau de bord', end: true },
-        { to: '/conges',    icon: <IconConge />,     label: 'Congés' },
+        { to: '/conges',    icon: <IconConge />,     label: 'Congés'           },
         { to: '/paie',      icon: <IconPaie />,      label: 'Bulletins de paie' },
+        { to: '/documents', icon: <IconDocuments />, label: 'Documents'         },
         ...(isRH || isManager
             ? [{ to: '/salaries', icon: <IconSalaries />, label: 'Salariés' }]
             : []),
@@ -108,7 +114,6 @@ export default function Sidebar({ mobile = false, onClose }) {
                         <p className="text-sm font-medium text-white truncate">
                             {salarie?.prenom} {salarie?.nom}
                         </p>
-                        {/* role is the computed primary role string — never salarie.role */}
                         <p className="text-xs text-slate-400 truncate">
                             {ROLE_LABELS[role] ?? role}
                         </p>

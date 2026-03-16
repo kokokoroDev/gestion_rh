@@ -5,10 +5,12 @@ import Conge             from "./conge.js";
 import Module            from "./modules.js";
 import Bulpaie           from "./bulpaie.js";
 import Notification      from "./notification.js";
+import DocumentRequest   from "./doc_demand.js";
 import sequelizeCon      from "../config/sequelize.js";
 
 const models = {
     Salarie,
+    DocumentRequest,
     Role,
     SalarieRoleModule,
     Conge,

@@ -19,4 +19,7 @@ export const salarieApi = {
 
   delete: (id) =>
     api.delete(`/sal/${id}`),
+
+  deleteRoleModule: (salarieId, roleModuleId) =>
+    api.delete(`/sal/${salarieId}/roles/${roleModuleId}`),
 }

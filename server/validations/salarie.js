@@ -12,7 +12,18 @@ export const createSalarieSchema = Joi.object({
   role: Joi.string().valid('rh', 'manager', 'fonctionnaire').default('fonctionnaire'),
   module_id: Joi.string().uuid().optional(),
   status: Joi.string().valid('active', 'inactive').default('active'),
-  changeManager : Joi.boolean().optional().default(false)
+  changeManager: Joi.boolean().optional().default(false),
+  assignments: Joi.array().items(
+    Joi.object({
+      role: Joi.string().valid('rh', 'manager', 'fonctionnaire').required(),
+      module_id: Joi.string().uuid().allow(null).optional(),
+      changeManager: Joi.boolean().when('role', {
+        is: 'manager',
+        then: Joi.optional(),
+        otherwise: Joi.forbidden()
+      })
+    })
+  ).optional()
 });
 
 export const updateSalarieSchema = Joi.object({
@@ -27,8 +38,21 @@ export const updateSalarieSchema = Joi.object({
   role: Joi.string().valid('rh', 'manager', 'fonctionnaire').optional(),
   module_id: Joi.string().uuid().optional(),
   status: Joi.string().valid('active', 'inactive').optional(),
-  changeManager : Joi.boolean().optional().default(false)
-}).min(1); 
+  changeManager: Joi.boolean().optional().default(false),
+  assignments: Joi.array().items(
+    Joi.object({
+      role: Joi.string().valid('rh', 'manager', 'fonctionnaire').required(),
+      module_id: Joi.string().uuid().allow(null).optional(),
+      changeManager: Joi.boolean().when('role', {
+        is: 'manager',
+        then: Joi.optional(),
+        otherwise: Joi.forbidden()
+      })
+    })
+  ).optional()
+}).min(1);
+
+
 
 export const listSalariesSchema = Joi.object({
   module_id: Joi.string().uuid().optional(),

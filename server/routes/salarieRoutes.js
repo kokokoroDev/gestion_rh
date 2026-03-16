@@ -38,6 +38,12 @@ router.put(
     salarieController.updateSalarie
 );
 
+router.delete(
+    '/:id/roles/:roleModuleId',
+    allowRoles('rh'),
+    salarieController.deleteRoleModule
+);
+
 router.delete('/:id', allowRoles('rh'), salarieController.deleteSalarie);
 
 export default router;

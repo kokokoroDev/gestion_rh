@@ -30,7 +30,8 @@ const Conge = sequelizeCon.define('Conge', {
         defaultValue: 'soumis'
     },
     commentaire: {
-        type: DataTypes.TEXT
+        type: DataTypes.TEXT,
+        allowNull : true
     },
     created_at: {
         type:         DataTypes.DATE,
