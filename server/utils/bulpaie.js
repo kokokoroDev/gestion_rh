@@ -1,16 +1,12 @@
 import models from "../db/models/index.js";
+import { isRH } from "./role.js";
 
-const {Module , Salarie } = models
+const { Module, Salarie, SalarieRoleModule, Role } = models;
 
-/**
- * Given a month (1–12) and year, return the previous month and year.
- */
 export const prevMonthYear = (month, year) => {
     if (month === 1) return { month: 12, year: year - 1 };
     return { month: month - 1, year };
 };
-
-
 
 export const computeNet = (salaire_brut, prime = 0, deduction = 0) => {
     const net = parseFloat(salaire_brut) + parseFloat(prime || 0) - parseFloat(deduction || 0);
@@ -18,18 +14,29 @@ export const computeNet = (salaire_brut, prime = 0, deduction = 0) => {
     return parseFloat(net.toFixed(2));
 };
 
+/** Salarie include for bulpaie queries — resolves module via roleModules. */
 export const buildSalarieInclude = () => ({
-    model: Salarie,
-    as: 'salarie',
-    attributes: ['id', 'prenom', 'nom', 'cin', 'module_id', 'date_debut'],
-    include: [{ model: Module, as: 'module', attributes: ['id', 'libelle'] }],
+    model:      Salarie,
+    as:         'salarie',
+    attributes: ['id', 'prenom', 'nom', 'cin', 'date_debut'],
+    include: [{
+        model:      SalarieRoleModule,
+        as:         'roleModules',
+        attributes: ['module_id'],
+        include: [{
+            model:      Module,
+            as:         'module',
+            attributes: ['id', 'libelle'],
+        }],
+    }],
 });
 
+/**
+ * RH can see any bulletin.
+ * Everyone else can only see their own.
+ * (Managers do not have cross-team access to payslips — that is RH-only.)
+ */
 export const checkAccess = (bulpaie, salarieInfo) => {
-    const { role, id: callerId, module_id } = salarieInfo;
-    if (role === 'rh') return;
-
-    if (bulpaie.sal_id !== callerId) {
-        throw new Error('Accès refusé');
-    }
+    if (isRH(salarieInfo)) return;
+    if (bulpaie.sal_id !== salarieInfo.id) throw new Error('Accès refusé');
 };

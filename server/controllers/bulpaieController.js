@@ -1,15 +1,13 @@
 import * as bulpaieServices from '../services/bulpaieServices.js';
+import { isRH } from '../utils/role.js';
 
 export const generateBulpaies = async (req, res) => {
     try {
-        if (req.salarie.role !== 'rh') {
+        if (!isRH(req.salarie)) {
             return res.status(403).json({ message: 'Accès refusé — RH uniquement' });
         }
-
         const { month, year } = req.body;
-        if (!month || !year) {
-            return res.status(400).json({ message: 'month et year sont requis' });
-        }
+        if (!month || !year) return res.status(400).json({ message: 'month et year sont requis' });
 
         const result = await bulpaieServices.generateMonthlyBulpaies(month, year);
         return res.status(200).json(result);
@@ -17,7 +15,6 @@ export const generateBulpaies = async (req, res) => {
         return res.status(400).json({ message: err.message });
     }
 };
-
 
 export const createBulpaie = async (req, res) => {
     try {

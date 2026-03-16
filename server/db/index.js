@@ -1,4 +1,5 @@
 import sequelizeCon from "./config/sequelize.js";
+import models from "./models/index.js";
 
 export const test = async () => {
     try {
@@ -14,7 +15,9 @@ export const testandsync = async () => {
     try {
         await sequelizeCon.sync({ alter: true })
         console.log('db is synced')
-    } catch {
+    } catch (error) {
+        console.log(error)
         console.log('not synced')
     }
 }
+

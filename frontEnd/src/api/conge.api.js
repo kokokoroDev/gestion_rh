@@ -1,7 +1,6 @@
 import api from './axios.api'
 
 export const congeApi = {
-  // List with filters: { status, type_conge, sal_id, date_from, date_to, limit, offset }
   getAll: (params = {}) =>
     api.get('/conge', { params }),
 

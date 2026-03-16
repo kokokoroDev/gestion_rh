@@ -2,6 +2,8 @@ import * as congeService from '../services/congeServices.js';
 
 export const soumettreConge = async (req, res) => {
     try {
+        // Only the salarie's id is needed here — the service loads the full
+        // roleModules from the database to determine initial status and who to notify.
         const result = await congeService.soumettreConge(req.body, req.salarie.id);
         const status = result.warning ? 207 : 201;
         res.status(status).json(result);
@@ -12,6 +14,7 @@ export const soumettreConge = async (req, res) => {
 
 export const getConges = async (req, res) => {
     try {
+        // req.salarie is now { id, roles: [...] } — the service handles the rest.
         const result = await congeService.getConges(req.query, req.salarie);
         res.json(result);
     } catch (error) {
@@ -35,7 +38,7 @@ export const updateCongeStatus = async (req, res) => {
         const conge = await congeService.updateCongeStatus(
             req.params.id,
             status,
-            req.salarie
+            req.salarie   // { id, roles }
         );
         res.json(conge);
     } catch (error) {
@@ -45,6 +48,7 @@ export const updateCongeStatus = async (req, res) => {
 
 export const cancelConge = async (req, res) => {
     try {
+        // cancelConge only needs to verify ownership — id is sufficient.
         await congeService.cancelConge(req.params.id, req.salarie.id);
         res.status(204).send();
     } catch (error) {

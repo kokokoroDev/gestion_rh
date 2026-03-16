@@ -3,7 +3,8 @@ import { Outlet, useLocation } from 'react-router-dom'
 import { useDispatch, useSelector } from 'react-redux'
 import Sidebar from '@/components/sidebar/Sidebar'
 import ToastContainer from '@/components/ui/ToastContainer'
-import { selectSidebarOpen, setSidebarOpen } from '@/store/slices/uiSlice'
+import NotificationBell from '@/components/ui/NotificationBell'
+import { selectSidebarOpen } from '@/store/slices/uiSlice'
 
 const PAGE_TITLES = {
   '/dashboard': 'Tableau de bord',
@@ -18,7 +19,6 @@ export default function DashboardLayout() {
   const sidebarOpen = useSelector(selectSidebarOpen)
   const [mobileOpen, setMobileOpen] = useState(false)
 
-  // Close mobile sidebar on route change
   useEffect(() => setMobileOpen(false), [location.pathname])
 
   const pageTitle = PAGE_TITLES[location.pathname] ?? 'RH Suite'
@@ -26,12 +26,10 @@ export default function DashboardLayout() {
   return (
     <div className="flex h-screen overflow-hidden bg-surface-50">
 
-      {/* ── Desktop sidebar ── */}
       <div className="hidden lg:flex flex-shrink-0">
         <Sidebar />
       </div>
 
-      {/* ── Mobile sidebar overlay ── */}
       {mobileOpen && (
         <div className="fixed inset-0 z-40 lg:hidden">
           <div
@@ -44,12 +42,9 @@ export default function DashboardLayout() {
         </div>
       )}
 
-      {/* ── Main area ── */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
 
-        {/* Topbar */}
         <header className="flex items-center gap-4 px-6 py-4 bg-white border-b border-surface-100 flex-shrink-0">
-          {/* Mobile menu button */}
           <button
             className="lg:hidden p-2 rounded-lg text-surface-500 hover:bg-surface-100 transition-colors"
             onClick={() => setMobileOpen(true)}
@@ -63,15 +58,14 @@ export default function DashboardLayout() {
             {pageTitle}
           </h1>
 
-          {/* Topbar right — could add notifications here later */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-4">
+            <NotificationBell />
             <span className="hidden sm:block text-xs text-surface-400 font-mono bg-surface-100 px-2.5 py-1 rounded-lg">
               {new Date().toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'long' })}
             </span>
           </div>
         </header>
 
-        {/* Page content */}
         <main className="flex-1 overflow-y-auto">
           <div className="p-6">
             <Outlet />
@@ -79,7 +73,6 @@ export default function DashboardLayout() {
         </main>
       </div>
 
-      {/* Global toast layer */}
       <ToastContainer />
     </div>
   )

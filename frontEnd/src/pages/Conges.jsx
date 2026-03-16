@@ -22,10 +22,10 @@ const LIMIT = 10
 
 const STATUSES = [
   { value: '', label: 'Tous statuts' },
-  { value: 'soumis',   label: 'Soumis' },
-  { value: 'reached',  label: 'En attente RH' },
-  { value: 'accepte',  label: 'Accepté' },
-  { value: 'refuse',   label: 'Refusé' },
+  { value: 'soumis', label: 'Soumis' },
+  { value: 'reached', label: 'En attente RH' },
+  { value: 'accepte', label: 'Accepté' },
+  { value: 'refuse', label: 'Refusé' },
 ]
 
 // ─── Status progress bar ───────────────────────────────────────────────────────
@@ -47,9 +47,9 @@ function CongeProgressBar({ status }) {
     <div className="mt-2.5">
       <div className="flex items-center">
         {STATUS_STEPS.map((step, i) => {
-          const done    = i <= currentIdx
-          const isLast  = i === STATUS_STEPS.length - 1
-          const labels  = { soumis: 'Soumis', reached: 'Chez RH', accepte: 'Accepté' }
+          const done = i <= currentIdx
+          const isLast = i === STATUS_STEPS.length - 1
+          const labels = { soumis: 'Soumis', reached: 'Chez RH', accepte: 'Accepté' }
           return (
             <div key={step} className="flex items-center flex-1">
               <div className="flex flex-col items-center flex-shrink-0">
@@ -150,37 +150,37 @@ function MyCongeCard({ conge, onCancel, cancelling, confirmCancel, setConfirmCan
 }
 
 // ─── Page ──────────────────────────────────────────────────────────────────────
-export default function Conges() {
-  const dispatch    = useDispatch()
-  const toast       = useToast()
+export default function Conges({to = 'my'}) {
+  const dispatch = useDispatch()
+  const toast = useToast()
   const { isRH, isManager, isFonctionnaire, salarie } = useAuth()
 
   // Team conges (redux)
-  const teamConges  = useSelector(selectConges)
-  const total       = useSelector(selectCongeTotal)
-  const loading     = useSelector(selectCongeLoading)
-  const submitting  = useSelector(selectCongeSubmitting)
+  const teamConges = useSelector(selectConges)
+  const total = useSelector(selectCongeTotal)
+  const loading = useSelector(selectCongeLoading)
+  const submitting = useSelector(selectCongeSubmitting)
 
   // Personal conges (local state for manager/RH)
-  const [myConges, setMyConges]             = useState([])
-  const [myLoading, setMyLoading]           = useState(false)
-  const [myTotal, setMyTotal]               = useState(0)
-  const [myPage, setMyPage]                 = useState(0)
-  const [myFilters, setMyFilters]           = useState({ status: '', type_conge: '' })
+  const [myConges, setMyConges] = useState([])
+  const [myLoading, setMyLoading] = useState(false)
+  const [myTotal, setMyTotal] = useState(0)
+  const [myPage, setMyPage] = useState(0)
+  const [myFilters, setMyFilters] = useState({ status: '', type_conge: '' })
 
-  const [tab, setTab]                       = useState('my')   // 'my' | 'team' | 'calendar'
-  const [showForm, setShowForm]             = useState(false)
-  const [selected, setSelected]             = useState(null)
-  const [filters, setFilters]               = useState({ status: isRH ? 'reached' : '', type_conge: '' })
-  const [page, setPage]                     = useState(0)
-  const [confirmCancel, setConfirmCancel]   = useState(null)
+  const [tab, setTab] = useState(to)   // 'my' | 'team' | 'calendar'
+  const [showForm, setShowForm] = useState(false)
+  const [selected, setSelected] = useState(null)
+  const [filters, setFilters] = useState({ status: isRH ? 'reached' : '', type_conge: '' })
+  const [page, setPage] = useState(0)
+  const [confirmCancel, setConfirmCancel] = useState(null)
 
   // ── Load team conges (for manager/RH "Équipe" tab; for fonctionnaire main list)
   const loadTeam = useCallback(() => {
     const params = {
       limit: LIMIT,
       offset: page * LIMIT,
-      ...(filters.status     ? { status:     filters.status }     : {}),
+      ...(filters.status ? { status: filters.status } : {}),
       ...(filters.type_conge ? { type_conge: filters.type_conge } : {}),
     }
     dispatch(fetchConges(params))
@@ -193,7 +193,7 @@ export default function Conges() {
     const params = {
       limit: LIMIT,
       offset: myPage * LIMIT,
-      ...(myFilters.status     ? { status:     myFilters.status }     : {}),
+      ...(myFilters.status ? { status: myFilters.status } : {}),
       ...(myFilters.type_conge ? { type_conge: myFilters.type_conge } : {}),
     }
     congeApi.getAll(params)
@@ -222,12 +222,12 @@ export default function Conges() {
     setConfirmCancel(null)
   }
 
-  const totalPages   = Math.ceil(total / LIMIT)
+  const totalPages = Math.ceil(total / LIMIT)
   const myTotalPages = Math.ceil(myTotal / LIMIT)
 
   // Tabs config
   const tabs = [
-    { key: 'my',       label: 'Mes demandes' },
+    { key: 'my', label: 'Mes demandes' },
     ...((isRH || isManager) ? [{ key: 'team', label: isRH ? 'Équipe / Tous' : 'Mon équipe' }] : []),
     { key: 'calendar', label: 'Calendrier' },
   ]
@@ -243,11 +243,10 @@ export default function Conges() {
             <button
               key={t.key}
               onClick={() => setTab(t.key)}
-              className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                tab === t.key
+              className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${tab === t.key
                   ? 'bg-white text-surface-800 shadow-card'
                   : 'text-surface-500 hover:text-surface-700'
-              }`}
+                }`}
             >
               {t.label}
             </button>
@@ -436,8 +435,8 @@ export default function Conges() {
                   </thead>
                   <tbody className="divide-y divide-surface-50">
                     {teamConges.map((conge) => {
-                      const canAction          = ['soumis', 'reached'].includes(conge.status)
-                      const canRefuseAccepted  = isRH && conge.status === 'accepte'
+                      const canAction = ['soumis', 'reached'].includes(conge.status)
+                      const canRefuseAccepted = isRH && conge.status === 'accepte'
 
                       return (
                         <tr key={conge.id} className="hover:bg-surface-50 transition-colors">

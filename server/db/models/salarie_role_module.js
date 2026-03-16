@@ -10,28 +10,19 @@ const SalarieRoleModule = sequelizeCon.define('SalarieRoleModule', {
     sal_id: {
         type: DataTypes.UUID,
         allowNull: false,
-        references: {
-            model: 'salarie',
-            key: 'id'
-        },
+        references: { model: 'Salarie', key: 'id' },
         onDelete: 'CASCADE'
     },
     role_id: {
         type: DataTypes.UUID,
         allowNull: false,
-        references: {
-            model: 'role',
-            key: 'id'
-        },
+        references: { model: 'Role', key: 'id' },
         onDelete: 'CASCADE'
     },
     module_id: {
         type: DataTypes.UUID,
-        allowNull: false,
-        references: {
-            model: 'module',
-            key: 'id'
-        },
+        allowNull: true,
+        references: { model: 'Module', key: 'id' },
         onDelete: 'CASCADE'
     }
 }, {
@@ -46,5 +37,11 @@ const SalarieRoleModule = sequelizeCon.define('SalarieRoleModule', {
         }
     ]
 });
+
+SalarieRoleModule.associate = (models) => {
+    SalarieRoleModule.belongsTo(models.Salarie, { foreignKey: 'sal_id', as: 'salarie' });
+    SalarieRoleModule.belongsTo(models.Role, { foreignKey: 'role_id', as: 'roleRef' });
+    SalarieRoleModule.belongsTo(models.Module, { foreignKey: 'module_id', as: 'module' });
+};
 
 export default SalarieRoleModule;
