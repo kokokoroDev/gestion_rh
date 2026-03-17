@@ -33,6 +33,12 @@ const IconDocuments = () => (
             d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" />
     </svg>
 )
+const IconNotes = () => (
+    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+        <path strokeLinecap="round" strokeLinejoin="round"
+            d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
+    </svg>
+)
 const IconLogout = () => (
     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
         <path strokeLinecap="round" strokeLinejoin="round"
@@ -64,10 +70,11 @@ export default function Sidebar({ mobile = false, onClose }) {
     const { salarie, role, isRH, isManager, logout } = useAuth()
 
     const nav = [
-        { to: '/dashboard', icon: <IconDashboard />, label: 'Tableau de bord', end: true },
-        { to: '/conges',    icon: <IconConge />,     label: 'Congés'           },
-        { to: '/paie',      icon: <IconPaie />,      label: 'Bulletins de paie' },
-        { to: '/documents', icon: <IconDocuments />, label: 'Documents'         },
+        { to: '/dashboard',     icon: <IconDashboard />, label: 'Tableau de bord', end: true },
+        { to: '/conges',        icon: <IconConge />,     label: 'Congés'           },
+        { to: '/paie',          icon: <IconPaie />,      label: 'Bulletins de paie' },
+        { to: '/documents',     icon: <IconDocuments />, label: 'Documents'         },
+        { to: '/notes-service', icon: <IconNotes />,     label: 'Notes de service'  },
         ...(isRH || isManager
             ? [{ to: '/salaries', icon: <IconSalaries />, label: 'Salariés' }]
             : []),

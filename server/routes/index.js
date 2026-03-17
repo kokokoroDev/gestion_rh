@@ -6,6 +6,7 @@ import congeRouter           from './congeRoutes.js';
 import bulpaieRouter         from './bulpaieRoutes.js';
 import notificationRouter    from './notificationRoutes.js';
 import documentRequestRouter from './documentRequestRoutes.js';
+import noteServiceRouter     from './noteServiceRoutes.js';
 
 const router = Router();
 
@@ -16,5 +17,6 @@ router.use('/conge', congeRouter);
 router.use('/paie',  bulpaieRouter);
 router.use('/notif', notificationRouter);
 router.use('/docs',  documentRequestRouter);
+router.use('/notes', noteServiceRouter);
 
 export default router;

@@ -1,21 +1,20 @@
 import { useState, useEffect } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
-import { useSelector } from 'react-redux'
 import Sidebar from '@/components/sidebar/Sidebar'
 import ToastContainer from '@/components/ui/ToastContainer'
 import NotificationBell from '@/components/ui/NotificationBell'
-import { selectSidebarOpen } from '@/store/slices/uiSlice'
 
 const PAGE_TITLES = {
-    '/dashboard':  'Tableau de bord',
-    '/conges':     'Gestion des congés',
-    '/paie':       'Bulletins de paie',
-    '/salaries':   'Salariés',
-    '/documents':  'Demandes de documents',
+    '/dashboard':     'Tableau de bord',
+    '/conges':        'Gestion des congés',
+    '/paie':          'Bulletins de paie',
+    '/salaries':      'Salariés',
+    '/documents':     'Demandes de documents',
+    '/notes-service': 'Notes de service',
 }
 
 export default function DashboardLayout() {
-    const location  = useLocation()
+    const location   = useLocation()
     const [mobileOpen, setMobileOpen] = useState(false)
 
     useEffect(() => setMobileOpen(false), [location.pathname])

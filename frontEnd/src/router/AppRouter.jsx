@@ -4,13 +4,14 @@ import { ProtectedRoute, PublicOnlyRoute, RoleRoute } from './ProtectedRoute'
 import AuthLayout      from '@/layouts/AuthLayout'
 import DashboardLayout from '@/layouts/DashboardLayout'
 
-import Login     from '@/pages/Login'
-import Dashboard from '@/pages/Dashboard'
-import Conges    from '@/pages/Conges'
-import Paie      from '@/pages/Paie'
-import Salaries  from '@/pages/Salaries'
-import Documents from '@/pages/Documents'
-import NotFound  from '@/pages/NotFound'
+import Login        from '@/pages/Login'
+import Dashboard    from '@/pages/Dashboard'
+import Conges       from '@/pages/Conges'
+import Paie         from '@/pages/Paie'
+import Salaries     from '@/pages/Salaries'
+import Documents    from '@/pages/Documents'
+import NoteService  from '@/pages/NoteService'
+import NotFound     from '@/pages/NotFound'
 
 export default function AppRouter() {
     return (
@@ -26,11 +27,12 @@ export default function AppRouter() {
                 {/* ── Protected ── */}
                 <Route element={<ProtectedRoute />}>
                     <Route element={<DashboardLayout />}>
-                        <Route path="/dashboard"  element={<Dashboard />} />
-                        <Route path="/conges"     element={<Conges />} />
-                        <Route path="/conges/cal" element={<Conges to="calendar" />} />
-                        <Route path="/paie"       element={<Paie />} />
-                        <Route path="/documents"  element={<Documents />} />
+                        <Route path="/dashboard"     element={<Dashboard />} />
+                        <Route path="/conges"        element={<Conges />} />
+                        <Route path="/conges/cal"    element={<Conges to="calendar" />} />
+                        <Route path="/paie"          element={<Paie />} />
+                        <Route path="/documents"     element={<Documents />} />
+                        <Route path="/notes-service" element={<NoteService />} />
 
                         {/* RH + Manager only */}
                         <Route element={<RoleRoute allowedRoles={['rh', 'manager']} />}>
