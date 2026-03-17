@@ -7,7 +7,7 @@ export const createCongeSchema = Joi.object({
     date_debut: Joi.date().required(),
     date_fin: Joi.date().min(Joi.ref('date_debut')).required(),
     commentaire: Joi.string().max(500).optional().allow('', null),
-    jours: Joi.array().items(
+    days: Joi.array().items(
         Joi.object({
             date: Joi.date().required(),
             is_half_day: Joi.boolean().default(false),
