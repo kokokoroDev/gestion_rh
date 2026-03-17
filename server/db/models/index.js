@@ -2,6 +2,7 @@ import Salarie           from "./salaries.js";
 import Role              from "./role.js";
 import SalarieRoleModule from "./salarie_role_module.js";
 import Conge             from "./conge.js";
+import CongeDay          from "./conge_jour.js";
 import Module            from "./modules.js";
 import Bulpaie           from "./bulpaie.js";
 import Notification      from "./notification.js";
@@ -16,6 +17,7 @@ const models = {
     Role,
     SalarieRoleModule,
     Conge,
+    CongeDay,
     Module,
     Bulpaie,
     Notification,

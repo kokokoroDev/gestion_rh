@@ -4,16 +4,30 @@ export const createCongeSchema = Joi.object({
     type_conge: Joi.string()
         .valid('maladie', 'vacance', 'maternite', 'paternite', 'sans_solde', 'exceptionnel', 'formation')
         .default('vacance'),
-    date_debut: Joi.date().min('now').required(),
+    date_debut: Joi.date().required(),
     date_fin: Joi.date().min(Joi.ref('date_debut')).required(),
-    commentaire: Joi.string().max(500).optional(),
+    commentaire: Joi.string().max(500).optional().allow('', null),
+    jours: Joi.array().items(
+        Joi.object({
+            date: Joi.date().required(),
+            is_half_day: Joi.boolean().default(false),
+            half_period: Joi.string()
+                .valid('morning', 'afternoon')
+                .allow(null)
+                .when('is_half_day', {
+                    is: true,
+                    then: Joi.required(),
+                    otherwise: Joi.optional().allow(null),
+                }),
+        })
+    ).min(1).optional(),
 });
 
 export const updateCongeStatusSchema = Joi.object({
     status: Joi.string()
         .valid('reached', 'accepte', 'refuse')
         .required(),
-})
+});
 
 export const listCongesSchema = Joi.object({
     status: Joi.string()

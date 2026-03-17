@@ -25,13 +25,19 @@ const Conge = sequelizeCon.define('Conge', {
         type:      DataTypes.DATEONLY,
         allowNull: true
     },
+    jours: {
+        type:         DataTypes.DECIMAL(5, 1),
+        allowNull:    false,
+        defaultValue: 0,
+        comment:      'Computed total working days (0.5 for half-days)',
+    },
     status: {
         type:         DataTypes.ENUM('soumis', 'reached', 'accepte', 'refuse'),
         defaultValue: 'soumis'
     },
     commentaire: {
-        type: DataTypes.TEXT,
-        allowNull : true
+        type:      DataTypes.TEXT,
+        allowNull: true
     },
     created_at: {
         type:         DataTypes.DATE,
@@ -48,6 +54,11 @@ Conge.associate = (models) => {
     Conge.belongsTo(models.Salarie, {
         foreignKey: 'sal_id',
         as:         'salarie'
+    });
+    Conge.hasMany(models.CongeDay, {
+        foreignKey: 'conge_id',
+        as:         'days',
+        onDelete:   'CASCADE',
     });
 };
 
