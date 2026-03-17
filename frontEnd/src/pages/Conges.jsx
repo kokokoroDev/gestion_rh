@@ -10,7 +10,7 @@ import { useToast } from '@/hooks/useToast'
 import Badge from '@/components/ui/Badge'
 import Spinner from '@/components/ui/Spinner'
 import CongeForm from '@/components/conges/CongeForm'
-import CongeStatusModal from '../components/conges/CongeStatusModal'
+import CongeStatusModal from '../components/conges/Congestatusmodal'
 import CongeCalendar from '@/components/conges/CongeCalendar'
 import {
   formatDate,
@@ -28,7 +28,91 @@ const STATUSES = [
   { value: 'refuse', label: 'Refusé' },
 ]
 
+// ─── Day helpers ───────────────────────────────────────────────────────────────
+
+const FR_DAYS_SHORT   = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam']
+const FR_MONTHS_SHORT = ['jan', 'fév', 'mar', 'avr', 'mai', 'jun', 'jul', 'aoû', 'sep', 'oct', 'nov', 'déc']
+
+const formatDayLabel = (dateStr) => {
+  const d = new Date(dateStr + 'T00:00:00')
+  return `${FR_DAYS_SHORT[d.getDay()]} ${String(d.getDate()).padStart(2, '0')} ${FR_MONTHS_SHORT[d.getMonth()]}`
+}
+
+// ─── Day pill ──────────────────────────────────────────────────────────────────
+
+function DayPill({ day }) {
+  if (day.is_half_day) {
+    const label = day.half_period === 'morning' ? 'AM' : 'PM'
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-100 text-amber-700 border border-amber-200">
+        {formatDayLabel(day.date)}
+        <span className="bg-amber-500 text-white rounded px-1">{label}</span>
+      </span>
+    )
+  }
+  return (
+    <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold bg-azure-50 text-azure-700 border border-azure-100">
+      {formatDayLabel(day.date)}
+    </span>
+  )
+}
+
+// ─── Day breakdown section ─────────────────────────────────────────────────────
+
+function DayBreakdown({ days }) {
+  const [expanded, setExpanded] = useState(false)
+  if (!days || days.length === 0) return null
+
+  const sorted   = [...days].sort((a, b) => a.date.localeCompare(b.date))
+  const shown    = expanded ? sorted : sorted.slice(0, 6)
+  const hasMore  = sorted.length > 6
+  const fullDays = days.filter(d => !d.is_half_day).length
+  const halfDays = days.filter(d => d.is_half_day).length
+
+  return (
+    <div className="mt-3 pt-3 border-t border-surface-100 space-y-2">
+      {/* Summary pills */}
+      <div className="flex items-center gap-1.5 flex-wrap">
+        <span className="text-[10px] font-semibold text-surface-500 uppercase tracking-wide mr-1">Jours:</span>
+        {fullDays > 0 && (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-azure-100 text-azure-700 text-[10px] font-bold">
+            <span className="w-1.5 h-1.5 rounded-sm bg-azure-600 inline-block" />
+            {fullDays} journée{fullDays > 1 ? 's' : ''}
+          </span>
+        )}
+        {halfDays > 0 && (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[10px] font-bold">
+            <span className="w-1.5 h-1.5 rounded-sm bg-amber-500 inline-block" />
+            {halfDays} demi-j
+          </span>
+        )}
+      </div>
+
+      {/* Day pills */}
+      <div className="flex flex-wrap gap-1.5">
+        {shown.map((day, i) => (
+          <DayPill key={i} day={day} />
+        ))}
+      </div>
+
+      {hasMore && (
+        <button
+          type="button"
+          onClick={() => setExpanded(e => !e)}
+          className="text-xs text-azure-600 hover:text-azure-700 font-medium flex items-center gap-1 transition-colors"
+        >
+          <svg className={`w-3 h-3 transition-transform ${expanded ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+          </svg>
+          {expanded ? 'Réduire' : `${sorted.length - 6} jours supplémentaires`}
+        </button>
+      )}
+    </div>
+  )
+}
+
 // ─── Status progress bar ───────────────────────────────────────────────────────
+
 const STATUS_STEPS = ['soumis', 'reached', 'accepte']
 
 function CongeProgressBar({ status }) {
@@ -47,7 +131,7 @@ function CongeProgressBar({ status }) {
     <div className="mt-2.5">
       <div className="flex items-center">
         {STATUS_STEPS.map((step, i) => {
-          const done = i <= currentIdx
+          const done  = i <= currentIdx
           const isLast = i === STATUS_STEPS.length - 1
           const labels = { soumis: 'Soumis', reached: 'Chez RH', accepte: 'Accepté' }
           return (
@@ -91,20 +175,17 @@ function CongeProgressBar({ status }) {
   )
 }
 
-// ─── Avatar ────────────────────────────────────────────────────────────────────
-function Avatar({ prenom = '', nom = '' }) {
-  return (
-    <div className="w-8 h-8 rounded-full bg-azure-100 flex items-center justify-center flex-shrink-0 text-xs font-semibold text-azure-700">
-      {getInitials(prenom, nom)}
-    </div>
-  )
-}
+// ─── My conge card ─────────────────────────────────────────────────────────────
 
-// ─── My conge card (with progress bar) ────────────────────────────────────────
 function MyCongeCard({ conge, onCancel, cancelling, confirmCancel, setConfirmCancel }) {
-  const canCancel = ['soumis', 'reached'].includes(conge.status)
+  const canCancel  = ['soumis', 'reached'].includes(conge.status)
+  const totalJours = parseFloat(conge.jours ?? 0)
+  const days       = conge.days ?? []
+  const hasHalfDays = days.some(d => d.is_half_day)
+
   return (
     <div className="border border-surface-100 rounded-xl p-4 hover:border-surface-200 hover:shadow-card transition-all">
+      {/* Header row */}
       <div className="flex items-start justify-between gap-3 mb-1">
         <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-full bg-azure-600 flex items-center justify-center flex-shrink-0">
@@ -119,13 +200,31 @@ function MyCongeCard({ conge, onCancel, cancelling, confirmCancel, setConfirmCan
             </p>
           </div>
         </div>
-        <span className="text-xs text-surface-400 font-mono flex-shrink-0 mt-0.5">
-          {formatDate(conge.date_debut)} → {formatDate(conge.date_fin)}
-        </span>
+
+        {/* Right: total + dates */}
+        <div className="text-right flex-shrink-0">
+          <div className="flex items-baseline gap-1 justify-end">
+            <span className="text-lg font-bold text-surface-900 leading-none">{totalJours}</span>
+            <span className="text-xs text-surface-400">jour{totalJours !== 1 ? 's' : ''}</span>
+          </div>
+          <span className="text-xs text-surface-400 font-mono">
+            {formatDate(conge.date_debut)} → {formatDate(conge.date_fin)}
+          </span>
+          {hasHalfDays && (
+            <span className="block text-[10px] text-amber-600 font-medium mt-0.5">
+              Demi-journées incluses
+            </span>
+          )}
+        </div>
       </div>
 
+      {/* Progress bar */}
       <CongeProgressBar status={conge.status} />
 
+      {/* Day breakdown */}
+      <DayBreakdown days={days} />
+
+      {/* Cancel button */}
       {canCancel && (
         <div className="mt-3 pt-2.5 border-t border-surface-100 flex justify-end">
           {confirmCancel === conge.id ? (
@@ -149,58 +248,64 @@ function MyCongeCard({ conge, onCancel, cancelling, confirmCancel, setConfirmCan
   )
 }
 
+// ─── Avatar ────────────────────────────────────────────────────────────────────
+
+function Avatar({ prenom = '', nom = '' }) {
+  return (
+    <div className="w-8 h-8 rounded-full bg-azure-100 flex items-center justify-center flex-shrink-0 text-xs font-semibold text-azure-700">
+      {getInitials(prenom, nom)}
+    </div>
+  )
+}
+
 // ─── Page ──────────────────────────────────────────────────────────────────────
-export default function Conges({to = 'my'}) {
+
+export default function Conges({ to = 'my' }) {
   const dispatch = useDispatch()
-  const toast = useToast()
+  const toast    = useToast()
   const { isRH, isManager, isFonctionnaire, salarie } = useAuth()
 
-  // Team conges (redux)
   const teamConges = useSelector(selectConges)
-  const total = useSelector(selectCongeTotal)
-  const loading = useSelector(selectCongeLoading)
+  const total      = useSelector(selectCongeTotal)
+  const loading    = useSelector(selectCongeLoading)
   const submitting = useSelector(selectCongeSubmitting)
 
-  // Personal conges (local state for manager/RH)
-  const [myConges, setMyConges] = useState([])
-  const [myLoading, setMyLoading] = useState(false)
-  const [myTotal, setMyTotal] = useState(0)
-  const [myPage, setMyPage] = useState(0)
-  const [myFilters, setMyFilters] = useState({ status: '', type_conge: '' })
+  const [myConges,   setMyConges]   = useState([])
+  const [myLoading,  setMyLoading]  = useState(false)
+  const [myTotal,    setMyTotal]    = useState(0)
+  const [myPage,     setMyPage]     = useState(0)
+  const [myFilters,  setMyFilters]  = useState({ status: '', type_conge: '' })
 
-  const [tab, setTab] = useState(to)   // 'my' | 'team' | 'calendar'
-  const [showForm, setShowForm] = useState(false)
-  const [selected, setSelected] = useState(null)
-  const [filters, setFilters] = useState({ status: isRH ? 'reached' : '', type_conge: '' })
-  const [page, setPage] = useState(0)
+  const [tab,           setTab]           = useState(to)
+  const [showForm,      setShowForm]      = useState(false)
+  const [selected,      setSelected]      = useState(null)
+  const [filters,       setFilters]       = useState({ status: isRH ? 'reached' : '', type_conge: '' })
+  const [page,          setPage]          = useState(0)
   const [confirmCancel, setConfirmCancel] = useState(null)
 
-  // ── Load team conges (for manager/RH "Équipe" tab; for fonctionnaire main list)
   const loadTeam = useCallback(() => {
     const params = {
-      limit: LIMIT,
+      limit:  LIMIT,
       offset: page * LIMIT,
-      ...(filters.status ? { status: filters.status } : {}),
+      ...(filters.status     ? { status:     filters.status     } : {}),
       ...(filters.type_conge ? { type_conge: filters.type_conge } : {}),
     }
     dispatch(fetchConges(params))
   }, [dispatch, filters, page])
 
-  // ── Load personal conges (for manager/RH)
   const loadMine = useCallback(() => {
     if (!isRH && !isManager) return
     setMyLoading(true)
     const params = {
-      limit: LIMIT,
+      limit:  LIMIT,
       offset: myPage * LIMIT,
-      ...(myFilters.status ? { status: myFilters.status } : {}),
+      ...(myFilters.status     ? { status:     myFilters.status     } : {}),
       ...(myFilters.type_conge ? { type_conge: myFilters.type_conge } : {}),
     }
     congeApi.getAll(params)
       .then((r) => {
-        // Filter to only own requests
-        const all = r.data?.data ?? []
-        const mine = all.filter((c) => c.sal_id === salarie?.id)
+        const all  = r.data?.data ?? []
+        const mine = all.filter(c => c.sal_id === salarie?.id)
         setMyConges(mine)
         setMyTotal(mine.length)
       })
@@ -209,9 +314,7 @@ export default function Conges({to = 'my'}) {
   }, [isRH, isManager, salarie?.id, myPage, myFilters])
 
   useEffect(() => { loadTeam() }, [loadTeam])
-  useEffect(() => {
-    if (isRH || isManager) loadMine()
-  }, [loadMine])
+  useEffect(() => { if (isRH || isManager) loadMine() }, [loadMine])
 
   const handleCancel = async (id) => {
     const res = await dispatch(cancelConge(id))
@@ -222,12 +325,11 @@ export default function Conges({to = 'my'}) {
     setConfirmCancel(null)
   }
 
-  const totalPages = Math.ceil(total / LIMIT)
+  const totalPages   = Math.ceil(total / LIMIT)
   const myTotalPages = Math.ceil(myTotal / LIMIT)
 
-  // Tabs config
   const tabs = [
-    { key: 'my', label: 'Mes demandes' },
+    { key: 'my',       label: 'Mes demandes' },
     ...((isRH || isManager) ? [{ key: 'team', label: isRH ? 'Équipe / Tous' : 'Mon équipe' }] : []),
     { key: 'calendar', label: 'Calendrier' },
   ]
@@ -237,16 +339,16 @@ export default function Conges({to = 'my'}) {
 
       {/* ── Header ── */}
       <div className="flex flex-wrap items-center gap-3">
-        {/* Tabs */}
         <div className="flex bg-surface-100 rounded-xl p-1 gap-1">
           {tabs.map((t) => (
             <button
               key={t.key}
               onClick={() => setTab(t.key)}
-              className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${tab === t.key
+              className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                tab === t.key
                   ? 'bg-white text-surface-800 shadow-card'
                   : 'text-surface-500 hover:text-surface-700'
-                }`}
+              }`}
             >
               {t.label}
             </button>
@@ -272,22 +374,21 @@ export default function Conges({to = 'my'}) {
       {/* ── Calendar tab ── */}
       {tab === 'calendar' && <CongeCalendar />}
 
-      {/* ── My requests tab (all roles) ── */}
+      {/* ── My requests tab ── */}
       {tab === 'my' && (
         <>
-          {/* Filters for own requests */}
           <div className="card flex flex-wrap gap-3">
             <select
               className="input-base w-48"
               value={myFilters.status}
-              onChange={(e) => { setMyFilters((f) => ({ ...f, status: e.target.value })); setMyPage(0) }}
+              onChange={(e) => { setMyFilters(f => ({ ...f, status: e.target.value })); setMyPage(0) }}
             >
-              {STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+              {STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
             </select>
             <select
               className="input-base w-48"
               value={myFilters.type_conge}
-              onChange={(e) => { setMyFilters((f) => ({ ...f, type_conge: e.target.value })); setMyPage(0) }}
+              onChange={(e) => { setMyFilters(f => ({ ...f, type_conge: e.target.value })); setMyPage(0) }}
             >
               <option value="">Tous types</option>
               {Object.entries(CONGE_TYPE_LABELS).map(([v, l]) => (
@@ -302,7 +403,7 @@ export default function Conges({to = 'my'}) {
             </button>
           </div>
 
-          {/* For fonctionnaire — use redux state directly */}
+          {/* Fonctionnaire — redux state */}
           {isFonctionnaire && (
             <>
               {loading ? (
@@ -318,7 +419,7 @@ export default function Conges({to = 'my'}) {
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {teamConges.map((conge) => (
+                  {teamConges.map(conge => (
                     <MyCongeCard
                       key={conge.id}
                       conge={conge}
@@ -334,15 +435,15 @@ export default function Conges({to = 'my'}) {
                 <div className="flex items-center justify-between">
                   <p className="text-xs text-surface-400">Page {page + 1} / {totalPages}</p>
                   <div className="flex gap-2">
-                    <button onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={page === 0} className="btn-secondary text-xs px-3 py-1.5">← Préc.</button>
-                    <button onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))} disabled={page >= totalPages - 1} className="btn-secondary text-xs px-3 py-1.5">Suiv. →</button>
+                    <button onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0} className="btn-secondary text-xs px-3 py-1.5">← Préc.</button>
+                    <button onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))} disabled={page >= totalPages - 1} className="btn-secondary text-xs px-3 py-1.5">Suiv. →</button>
                   </div>
                 </div>
               )}
             </>
           )}
 
-          {/* For manager/RH — use local myConges state */}
+          {/* Manager / RH — local state */}
           {(isRH || isManager) && (
             <>
               {myLoading ? (
@@ -358,7 +459,7 @@ export default function Conges({to = 'my'}) {
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {myConges.map((conge) => (
+                  {myConges.map(conge => (
                     <MyCongeCard
                       key={conge.id}
                       conge={conge}
@@ -375,22 +476,21 @@ export default function Conges({to = 'my'}) {
         </>
       )}
 
-      {/* ── Team tab (manager/RH only) ── */}
+      {/* ── Team tab ── */}
       {tab === 'team' && (isRH || isManager) && (
         <>
-          {/* Filters */}
           <div className="card flex flex-wrap gap-3">
             <select
               className="input-base w-48"
               value={filters.status}
-              onChange={(e) => { setFilters((f) => ({ ...f, status: e.target.value })); setPage(0) }}
+              onChange={(e) => { setFilters(f => ({ ...f, status: e.target.value })); setPage(0) }}
             >
-              {STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+              {STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
             </select>
             <select
               className="input-base w-48"
               value={filters.type_conge}
-              onChange={(e) => { setFilters((f) => ({ ...f, type_conge: e.target.value })); setPage(0) }}
+              onChange={(e) => { setFilters(f => ({ ...f, type_conge: e.target.value })); setPage(0) }}
             >
               <option value="">Tous types</option>
               {Object.entries(CONGE_TYPE_LABELS).map(([v, l]) => (
@@ -408,7 +508,6 @@ export default function Conges({to = 'my'}) {
             </div>
           </div>
 
-          {/* Table */}
           <div className="card p-0 overflow-hidden">
             {loading ? (
               <div className="flex items-center justify-center py-16">
@@ -434,8 +533,8 @@ export default function Conges({to = 'my'}) {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-surface-50">
-                    {teamConges.map((conge) => {
-                      const canAction = ['soumis', 'reached'].includes(conge.status)
+                    {teamConges.map(conge => {
+                      const canAction      = ['soumis', 'reached'].includes(conge.status)
                       const canRefuseAccepted = isRH && conge.status === 'accepte'
 
                       return (
@@ -457,9 +556,19 @@ export default function Conges({to = 'my'}) {
                             {CONGE_TYPE_LABELS[conge.type_conge]}
                           </td>
                           <td className="px-5 py-3.5">
-                            <span className="font-mono text-xs bg-surface-100 px-2 py-1 rounded-lg">
-                              {formatDate(conge.date_debut)} → {formatDate(conge.date_fin)}
-                            </span>
+                            <div>
+                              <span className="font-mono text-xs bg-surface-100 px-2 py-1 rounded-lg">
+                                {formatDate(conge.date_debut)} → {formatDate(conge.date_fin)}
+                              </span>
+                              <div className="flex items-center gap-1.5 mt-1">
+                                <span className="text-xs font-semibold text-surface-700">{parseFloat(conge.jours ?? 0)}j</span>
+                                {(conge.days ?? []).some(d => d.is_half_day) && (
+                                  <span className="text-[10px] text-amber-600 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-full font-medium">
+                                    ½j incluses
+                                  </span>
+                                )}
+                              </div>
+                            </div>
                           </td>
                           <td className="px-5 py-3.5">
                             <Badge className={CONGE_STATUS_COLORS[conge.status]}>
@@ -488,8 +597,8 @@ export default function Conges({to = 'my'}) {
               <div className="flex items-center justify-between px-5 py-3 border-t border-surface-100">
                 <p className="text-xs text-surface-400">Page {page + 1} / {totalPages}</p>
                 <div className="flex gap-2">
-                  <button onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={page === 0} className="btn-secondary text-xs px-3 py-1.5">← Préc.</button>
-                  <button onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))} disabled={page >= totalPages - 1} className="btn-secondary text-xs px-3 py-1.5">Suiv. →</button>
+                  <button onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0} className="btn-secondary text-xs px-3 py-1.5">← Préc.</button>
+                  <button onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))} disabled={page >= totalPages - 1} className="btn-secondary text-xs px-3 py-1.5">Suiv. →</button>
                 </div>
               </div>
             )}
