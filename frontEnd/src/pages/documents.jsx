@@ -89,7 +89,7 @@ function DownloadBtn({ requestId, responseId, fileName, compact = false }) {
     )
 }
 
-// ─── Response files section shown in "my requests" card ──────────────────────
+// ─── Response files section ───────────────────────────────────────────────────
 function ResponsesSection({ request }) {
     const responses = request.responses ?? []
     if (responses.length === 0) return null
@@ -182,29 +182,33 @@ function MyRequestCard({ request, onCancel, cancelling, confirmCancel, setConfir
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function Documents() {
     const dispatch = useDispatch()
-    const toast = useToast()
-    const { isRH  , salarie} = useAuth()
+    const toast    = useToast()
+    const { isRH, salarie } = useAuth()
 
-    const requests = useSelector(selectDocumentRequests)
-    const total = useSelector(selectDocumentRequestTotal)
-    const loading = useSelector(selectDocumentRequestLoading)
+    const requests   = useSelector(selectDocumentRequests)
+    const total      = useSelector(selectDocumentRequestTotal)
+    const loading    = useSelector(selectDocumentRequestLoading)
     const submitting = useSelector(selectDocumentRequestSubmitting)
 
-    const [tab, setTab] = useState('my')
-    const [showForm, setShowForm] = useState(false)
-    const [selected, setSelected] = useState(null)
-    const [filters, setFilters] = useState({ status: '', demande: '' })
-    const [page, setPage] = useState(0)
+    const [tab,           setTab]           = useState('my')
+    const [showForm,      setShowForm]      = useState(false)
+    const [selected,      setSelected]      = useState(null)
+    const [filters,       setFilters]       = useState({ status: '', demande: '' })
+    const [page,          setPage]          = useState(0)
     const [confirmCancel, setConfirmCancel] = useState(null)
 
     const load = useCallback(() => {
         dispatch(fetchDocumentRequests({
-            limit: LIMIT,
+            limit:  LIMIT,
             offset: page * LIMIT,
-            ...(filters.status ? { status: filters.status } : {}),
+            ...(filters.status  ? { status:  filters.status  } : {}),
             ...(filters.demande ? { demande: filters.demande } : {}),
+            // ── KEY FIX: always scope "my" tab to the current user ──
+            // Non-RH users are scoped server-side automatically.
+            // RH users need an explicit sal_id so they only see their own.
+            ...(tab === 'my' ? { sal_id: salarie?.id } : {}),
         }))
-    }, [dispatch, filters, page])
+    }, [dispatch, filters, page, tab, salarie?.id])
 
     useEffect(() => { load() }, [load])
 
@@ -218,7 +222,7 @@ export default function Documents() {
 
     const totalPages = Math.ceil(total / LIMIT)
     const tabs = [
-        { key: 'my', label: 'Mes demandes' },
+        { key: 'my',  label: 'Mes demandes' },
         ...(isRH ? [{ key: 'all', label: 'Toutes les demandes' }] : []),
     ]
 
@@ -230,10 +234,11 @@ export default function Documents() {
                 <div className="flex bg-surface-100 rounded-xl p-1 gap-1">
                     {tabs.map(t => (
                         <button key={t.key} onClick={() => switchTab(t.key)}
-                            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${tab === t.key
+                            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                                tab === t.key
                                     ? 'bg-white text-surface-800 shadow-card'
                                     : 'text-surface-500 hover:text-surface-700'
-                                }`}>
+                            }`}>
                             {t.label}
                         </button>
                     ))}
@@ -252,11 +257,11 @@ export default function Documents() {
             {/* ── Filters ── */}
             <div className="card flex flex-wrap gap-3">
                 <select className="input-base w-44" value={filters.status}
-                    onChange={(e) => { setFilters(f => ({ ...f, status: e.target.value })); setPage(0) }}>
+                    onChange={e => { setFilters(f => ({ ...f, status: e.target.value })); setPage(0) }}>
                     {STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
                 <select className="input-base w-56" value={filters.demande}
-                    onChange={(e) => { setFilters(f => ({ ...f, demande: e.target.value })); setPage(0) }}>
+                    onChange={e => { setFilters(f => ({ ...f, demande: e.target.value })); setPage(0) }}>
                     {DEMANDE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
                 <button onClick={() => { setFilters({ status: '', demande: '' }); setPage(0) }} className="btn-ghost text-sm">
@@ -332,7 +337,6 @@ export default function Documents() {
                                         const responses = r.responses ?? []
                                         return (
                                             <tr key={r.id} className="hover:bg-surface-50 transition-colors">
-
                                                 <td className="px-5 py-3.5">
                                                     <div className="flex items-center gap-2.5">
                                                         <Avatar prenom={r.salarie?.prenom} nom={r.salarie?.nom} />
@@ -348,7 +352,6 @@ export default function Documents() {
                                                         </div>
                                                     </div>
                                                 </td>
-
                                                 <td className="px-5 py-3.5">
                                                     <div className="flex items-center gap-2">
                                                         <span>{DOC_DEMANDE_ICONS[r.demande]}</span>
@@ -360,11 +363,9 @@ export default function Documents() {
                                                         </p>
                                                     )}
                                                 </td>
-
                                                 <td className="px-5 py-3.5 text-surface-500 text-xs font-mono whitespace-nowrap">
                                                     {formatDateTime(r.createdAt)}
                                                 </td>
-
                                                 <td className="px-5 py-3.5">
                                                     <Badge className={DOC_STATUS_COLORS[r.status]}>
                                                         {DOC_STATUS_LABELS[r.status]}
@@ -375,8 +376,6 @@ export default function Documents() {
                                                         </p>
                                                     )}
                                                 </td>
-
-                                                {/* Files count badge + quick download for first file */}
                                                 <td className="px-5 py-3.5">
                                                     {responses.length === 0 ? (
                                                         <span className="text-xs text-surface-400">—</span>
@@ -396,16 +395,13 @@ export default function Documents() {
                                                         </div>
                                                     )}
                                                 </td>
-
                                                 <td className="px-5 py-3.5 text-right">
-                                                    {/* Single button opens modal in treat OR edit mode */}
                                                     {r.status !== 'refuse' && (
                                                         <button
                                                             onClick={() => setSelected(r)}
-                                                            className={`text-xs px-3 py-1.5 ${r.status === 'en_attente'
-                                                                    ? 'btn-primary'
-                                                                    : 'btn-secondary'
-                                                                }`}
+                                                            className={`text-xs px-3 py-1.5 ${
+                                                                r.status === 'en_attente' ? 'btn-primary' : 'btn-secondary'
+                                                            }`}
                                                         >
                                                             {r.status === 'en_attente' ? 'Traiter' : 'Modifier'}
                                                         </button>
@@ -442,4 +438,4 @@ export default function Documents() {
             />
         </div>
     )
-}
+}   
