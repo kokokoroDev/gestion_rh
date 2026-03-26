@@ -63,7 +63,6 @@ export default function Sidebar({ mobile = false, onClose }) {
         ...(isRH || isManager || isTeamLead ? [{ to: '/salaries', icon: <IconSalaries />, label: 'Salaries' }] : []),
     ]
 
-    console.log(isTeamLead)
     return (
         <aside className="flex flex-col h-full w-64 bg-navy-900 shadow-sidebar">
             <div className="flex items-center gap-3 px-5 py-5 border-b border-navy-700/50">

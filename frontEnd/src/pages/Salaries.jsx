@@ -23,7 +23,6 @@ function Avatar({ prenom = '', nom = '' }) {
     )
 }
 
-// ─── All role+module pairs for a salarie in compact badge format ───────────────
 function RoleModuleBadges({ roleModules = [] }) {
     if (!roleModules.length) return null
     return (
@@ -32,14 +31,9 @@ function RoleModuleBadges({ roleModules = [] }) {
                 const roleName    = rm.roleRef?.name
                 const moduleLabel = rm.module?.libelle
                 return (
-                    <span
-                        key={rm.id}
-                        className={`badge ${ROLE_COLORS[roleName] ?? 'bg-surface-100 text-surface-600'}`}
-                    >
+                    <span key={rm.id} className={`badge ${ROLE_COLORS[roleName] ?? 'bg-surface-100 text-surface-600'}`}>
                         {ROLE_LABELS[roleName] ?? roleName}
-                        {moduleLabel && (
-                            <span className="opacity-70 ml-1">· {moduleLabel}</span>
-                        )}
+                        {moduleLabel && <span className="opacity-70 ml-1">· {moduleLabel}</span>}
                     </span>
                 )
             })}
@@ -50,17 +44,19 @@ function RoleModuleBadges({ roleModules = [] }) {
 export default function Salaries() {
     const dispatch = useDispatch()
     const toast    = useToast()
-    const { isRH, isManager, isTeamLead , isFonctionnaire, salarie } = useAuth()
+    const { isRH, isManager, isTeamLead, isFonctionnaire, salarie } = useAuth()
 
     const salaries = useSelector(selectSalaries)
     const total    = useSelector(selectSalarieTotal)
     const loading  = useSelector(selectSalarieLoading)
 
+    const isSupervisor = isManager || isTeamLead
+
     const [search,          setSearch]          = useState('')
     const [debouncedSearch, setDebouncedSearch] = useState('')
     const [filters,         setFilters]         = useState({ role: '', status: 'active' })
     const [page,            setPage]            = useState(0)
-    const [moduleFilter,    setModuleFilter]    = useState('')   // manager multi-module filter
+    const [moduleFilter,    setModuleFilter]    = useState('')
 
     const [showForm,   setShowForm]   = useState(false)
     const [editing,    setEditing]    = useState(null)
@@ -68,30 +64,27 @@ export default function Salaries() {
     const [confirmDel, setConfirmDel] = useState(null)
     const [deleting,   setDeleting]   = useState(false)
 
-    // ── Compute manager's own modules (for the filter dropdown) ───────────────
-    const managerModules = useMemo(() => {
+    // Supervisor's own modules (manager + team_lead) for filter dropdown
+    const supervisorModules = useMemo(() => {
         if (!salarie?.roleModules) return []
         const seen = new Map()
         for (const rm of salarie.roleModules) {
-            if (rm.roleRef?.name === 'manager' && rm.module_id && !seen.has(rm.module_id)) {
-                seen.set(rm.module_id, {
-                    id:      rm.module_id,
-                    libelle: rm.module?.libelle ?? rm.module_id,
-                })
+            const isSupRole = rm.roleRef?.name === 'manager' || rm.roleRef?.name === 'team_lead'
+            if (isSupRole && rm.module_id && !seen.has(rm.module_id)) {
+                seen.set(rm.module_id, { id: rm.module_id, libelle: rm.module?.libelle ?? rm.module_id })
             }
         }
         return [...seen.values()]
     }, [salarie])
 
-    // ── Debounce search ───────────────────────────────────────────────────────
+    // Debounce search
     useEffect(() => {
         const t = setTimeout(() => { setDebouncedSearch(search); setPage(0) }, 350)
         return () => clearTimeout(t)
     }, [search])
 
-    // ── Load ──────────────────────────────────────────────────────────────────
     const load = useCallback(() => {
-        if (isManager && !isRH) {
+        if (isSupervisor && !isRH) {
             dispatch(fetchTeam())
         } else {
             const params = {
@@ -103,17 +96,17 @@ export default function Salaries() {
             }
             dispatch(fetchSalaries(params))
         }
-    }, [dispatch, filters, page, debouncedSearch, isRH, isManager])
+    }, [dispatch, filters, page, debouncedSearch, isRH, isSupervisor])
 
     useEffect(() => { load() }, [load])
 
-    // ── Client-side module filter for managers with multiple modules ──────────
+    // Client-side module filter for supervisors with multiple modules
     const displaySalaries = useMemo(() => {
-        if (!moduleFilter || !isManager || isRH) return salaries
+        if (!moduleFilter || !isSupervisor || isRH) return salaries
         return salaries.filter(s =>
             s.roleModules?.some(rm => rm.module_id === moduleFilter)
         )
-    }, [salaries, moduleFilter, isManager, isRH])
+    }, [salaries, moduleFilter, isSupervisor, isRH])
 
     const handleDelete = async (id) => {
         setDeleting(true)
@@ -139,7 +132,7 @@ export default function Salaries() {
                 </div>
                 <h2 className="text-base font-semibold text-surface-800 mb-1">Accès restreint</h2>
                 <p className="text-sm text-surface-400 max-w-xs">
-                    La liste des salariés est réservée aux managers et au service RH.
+                    La liste des salariés est réservée aux managers, team leads et au service RH.
                 </p>
             </div>
         )
@@ -150,7 +143,6 @@ export default function Salaries() {
 
             {/* ── Header ── */}
             <div className="flex flex-wrap items-center gap-3">
-                {/* Search (RH only — managers see a fixed team) */}
                 {isRH && (
                     <div className="relative flex-1 min-w-[200px] max-w-xs">
                         <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-surface-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -161,15 +153,12 @@ export default function Salaries() {
                     </div>
                 )}
 
-                {/* Module filter for managers with multiple modules */}
-                {isManager && !isRH && managerModules.length > 1 && (
-                    <select
-                        className="input-base w-44"
-                        value={moduleFilter}
-                        onChange={(e) => setModuleFilter(e.target.value)}
-                    >
+                {/* Module filter for supervisors with multiple modules */}
+                {isSupervisor && !isRH && supervisorModules.length > 1 && (
+                    <select className="input-base w-44" value={moduleFilter}
+                        onChange={(e) => setModuleFilter(e.target.value)}>
                         <option value="">Tous mes modules</option>
-                        {managerModules.map(m => (
+                        {supervisorModules.map(m => (
                             <option key={m.id} value={m.id}>{m.libelle}</option>
                         ))}
                     </select>
@@ -177,18 +166,13 @@ export default function Salaries() {
 
                 <div className="flex-1" />
 
-                {isManager && !isRH && managerModules.length === 1 && (
+                {isSupervisor && !isRH && supervisorModules.length === 1 && (
                     <span className="text-xs text-surface-400 bg-surface-100 px-3 py-1.5 rounded-xl">
-                        Module: {managerModules[0].libelle}
-                    </span>
-                )}
-                {isManager && !isRH && managerModules.length === 0 && (
-                    <span className="text-xs text-surface-400 bg-surface-100 px-3 py-1.5 rounded-xl">
-                        Mon équipe uniquement
+                        Module: {supervisorModules[0].libelle}
                     </span>
                 )}
 
-                {(isRH || isManager) && (
+                {(isRH || isSupervisor) && (
                     <button onClick={() => { setEditing(null); setShowForm(true) }} className="btn-primary">
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
@@ -206,6 +190,7 @@ export default function Salaries() {
                         <option value="">Tous rôles</option>
                         <option value="rh">RH</option>
                         <option value="manager">Manager</option>
+                        <option value="team_lead">Team Lead</option>
                         <option value="fonctionnaire">Fonctionnaire</option>
                     </select>
                     <select className="input-base w-40" value={filters.status}
@@ -237,8 +222,7 @@ export default function Salaries() {
             ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
                     {displaySalaries.map((s) => (
-                        <div key={s.id}
-                            className="card hover:shadow-card-lg transition-shadow cursor-pointer group"
+                        <div key={s.id} className="card hover:shadow-card-lg transition-shadow cursor-pointer group"
                             onClick={() => setDetailId(s.id)}>
                             <div className="flex items-start gap-3">
                                 <Avatar prenom={s.prenom} nom={s.nom} />
@@ -247,10 +231,7 @@ export default function Salaries() {
                                         {s.prenom} {s.nom}
                                     </p>
                                     <p className="text-xs text-surface-400 truncate mt-0.5">{s.email}</p>
-
-                                    {/* All role/module pairs */}
                                     <RoleModuleBadges roleModules={s.roleModules} />
-
                                     {s.status === 'inactive' && (
                                         <span className="badge bg-rose-100 text-rose-500 mt-1">Inactif</span>
                                     )}
@@ -258,9 +239,7 @@ export default function Salaries() {
                             </div>
 
                             <div className="mt-4 pt-3 border-t border-surface-100 flex items-center justify-between">
-                                <div className="text-xs text-surface-400">
-                                    Depuis {formatDate(s.date_debut)}
-                                </div>
+                                <div className="text-xs text-surface-400">Depuis {formatDate(s.date_debut)}</div>
                                 <div className="flex items-center gap-1.5 text-xs font-medium text-emerald-600">
                                     <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                         <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -296,7 +275,7 @@ export default function Salaries() {
                 </div>
             )}
 
-            {/* ── Pagination (RH only — managers load full team) ── */}
+            {/* ── Pagination (RH only) ── */}
             {isRH && totalPages > 1 && (
                 <div className="flex items-center justify-between">
                     <p className="text-xs text-surface-400">Page {page + 1} / {totalPages}</p>

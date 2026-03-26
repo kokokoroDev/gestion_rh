@@ -1,22 +1,15 @@
 import models from "../db/models/index.js";
-import { notifyManager, notifyRH, notifySalarie } from "../middleware/socket.js";
+import { notifyManager, notifyRH, notifySalarie, notifyTeamLead } from "../socket.js";
 
 const { Notification } = models;
 
 /**
- * Persists a Notification row and immediately pushes it to the correct
- * socket room.
+ * Persists a Notification row and immediately pushes it to the correct socket room.
  *
  * @param {import('socket.io').Server} io
- * @param {string} sal_id  — recipient's UUID
- * @param {'rh'|'manager'|'fonctionnaire'} to  — determines which room helper to call
- * @param {{
- *   type: string,
- *   title: string,
- *   message: string,
- *   related_entity_id?: string|null,
- *   related_entity_type?: string|null,
- * }} notificationData
+ * @param {string}  sal_id  — recipient's UUID
+ * @param {'rh'|'manager'|'team_lead'|'fonctionnaire'} to — determines room
+ * @param {{ type, title, message, related_entity_id?, related_entity_type? }} notificationData
  */
 export const createAndNotify = async (io, sal_id, to, notificationData) => {
     const notification = await Notification.create({
@@ -43,6 +36,8 @@ export const createAndNotify = async (io, sal_id, to, notificationData) => {
         notifyRH(io, sal_id, payload);
     } else if (to === 'manager') {
         notifyManager(io, sal_id, payload);
+    } else if (to === 'team_lead') {
+        notifyTeamLead(io, sal_id, payload);
     } else {
         notifySalarie(io, sal_id, payload);
     }

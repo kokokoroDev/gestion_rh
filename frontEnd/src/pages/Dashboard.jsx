@@ -38,7 +38,7 @@ const IconDocRequest = () => (
   </svg>
 )
 
-// ─── Status progress steps ─────────────────────────────────────────────────────
+// ─── Status progress bar ───────────────────────────────────────────────────────
 const STATUS_STEPS = ['soumis', 'reached', 'accepte']
 
 function CongeProgressBar({ status }) {
@@ -46,7 +46,7 @@ function CongeProgressBar({ status }) {
     return (
       <div className="flex items-center gap-1.5 mt-2">
         <div className="flex-1 h-1 rounded-full bg-rose-200" />
-        <span className="text-xs font-medium text-rose-600">Refuse</span>
+        <span className="text-xs font-medium text-rose-600">Refusé</span>
       </div>
     )
   }
@@ -57,7 +57,7 @@ function CongeProgressBar({ status }) {
         {STATUS_STEPS.map((step, i) => {
           const done    = i <= currentIdx
           const current = i === currentIdx
-          const labels  = { soumis: 'Soumis', reached: 'Chez RH', accepte: 'Accepte' }
+          const labels  = { soumis: 'Soumis', reached: 'Chez RH', accepte: 'Accepté' }
           return (
             <div key={step} className="flex items-center flex-1">
               <div className="flex flex-col items-center flex-shrink-0">
@@ -148,7 +148,6 @@ function TeamCongeRow({ conge }) {
   )
 }
 
-// ─── Doc request row ─────────────────────────────────────────────────────────
 function DocRequestRow({ request }) {
   const nom = request.salarie
     ? `${request.salarie.prenom} ${request.salarie.nom}`
@@ -173,7 +172,6 @@ function DocRequestRow({ request }) {
   )
 }
 
-// ─── Doc type breakdown card (when clicking the stat) ─────────────────────────
 function DocTypeBreakdownCard({ counts, onClose }) {
   const DOC_TYPE_COLORS = {
     att_travail:   { bg: 'bg-azure-50',   border: 'border-azure-200',   text: 'text-azure-700',   dot: 'bg-azure-500'   },
@@ -208,9 +206,6 @@ function DocTypeBreakdownCard({ counts, onClose }) {
                   <span className={`text-xs ${c.text} opacity-70`}>en attente</span>
                 </div>
               </div>
-              <svg className={`w-4 h-4 ${c.text} opacity-40 group-hover:opacity-100 transition-opacity flex-shrink-0`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-              </svg>
             </a>
           )
         })}
@@ -219,7 +214,6 @@ function DocTypeBreakdownCard({ counts, onClose }) {
   )
 }
 
-// ─── Section card wrapper ─────────────────────────────────────────────────────
 function SectionCard({ title, subtitle, linkTo, linkLabel = 'Voir tout →', loading, empty, emptyText, children }) {
   return (
     <div className="card">
@@ -239,14 +233,13 @@ function SectionCard({ title, subtitle, linkTo, linkLabel = 'Voir tout →', loa
           <svg className="w-8 h-8 mx-auto mb-2 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
           </svg>
-          <p className="text-sm">{emptyText ?? 'Aucune donnee'}</p>
+          <p className="text-sm">{emptyText ?? 'Aucune donnée'}</p>
         </div>
       ) : children}
     </div>
   )
 }
 
-// ─── Clickable stat card ───────────────────────────────────────────────────────
 function ClickableStatCard({ label, value, sub, icon, color = 'azure', onClick, active }) {
   const colors = {
     azure:   'bg-azure-50   text-azure-600   border-azure-100',
@@ -256,11 +249,9 @@ function ClickableStatCard({ label, value, sub, icon, color = 'azure', onClick, 
   }
 
   return (
-    <button
-      onClick={onClick}
+    <button onClick={onClick}
       className={`card flex items-start gap-4 animate-slide-up w-full text-left transition-all
-        ${active ? 'ring-2 ring-azure-400 shadow-card-lg' : 'hover:shadow-card-lg'}`}
-    >
+        ${active ? 'ring-2 ring-azure-400 shadow-card-lg' : 'hover:shadow-card-lg'}`}>
       <div className={`p-3 rounded-xl border ${colors[color]}`}>{icon}</div>
       <div className="flex-1 min-w-0">
         <p className="text-xs font-medium text-surface-500 uppercase tracking-wide">{label}</p>
@@ -280,7 +271,10 @@ function ClickableStatCard({ label, value, sub, icon, color = 'azure', onClick, 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function Dashboard() {
   const dispatch = useDispatch()
-  const { salarie, isRH, isManager, isFonctionnaire } = useAuth()
+  const { salarie, isRH, isManager, isTeamLead, isFonctionnaire } = useAuth()
+
+  // isRH, isManager, isTeamLead all see their team's pending conges
+  const isSupervisor = isRH || isManager || isTeamLead
 
   const conges       = useSelector(selectConges)
   const congeTotal   = useSelector(selectCongeTotal)
@@ -288,20 +282,19 @@ export default function Dashboard() {
 
   const [myConges,        setMyConges]        = useState([])
   const [myCongesLoading, setMyCongesLoading] = useState(false)
-
-  // All doc requests fetched once, then split by type
   const [allDocRequests,  setAllDocRequests]  = useState([])
   const [docLoading,      setDocLoading]      = useState(false)
-
-  // Per-type pending counts (for breakdown card)
   const [pendingByType,   setPendingByType]   = useState({})
   const [showDocBreakdown, setShowDocBreakdown] = useState(false)
 
   useEffect(() => {
-    if (isRH || isManager) {
-      dispatch(fetchConges({ status: isRH ? 'reached' : 'soumis', limit: 5 }))
+    if (isSupervisor) {
+      // Fetch pending team conges
+      const pendingStatus = isRH ? 'reached' : 'soumis'
+      dispatch(fetchConges({ status: pendingStatus, limit: 5 }))
       dispatch(fetchSalaries({ limit: 5 }))
 
+      // Also fetch own conges
       setMyCongesLoading(true)
       congeApi.getAll({ limit: 5 })
         .then(r => {
@@ -314,14 +307,13 @@ export default function Dashboard() {
       dispatch(fetchConges({ limit: 5 }))
     }
 
-    // Fetch recent doc requests — one call, split client-side
+    // Doc requests
     setDocLoading(true)
     const params = isRH ? { limit: 30, offset: 0 } : { limit: 15, offset: 0 }
     documentRequestApi.getAll(params)
       .then(r => {
         const docs = r.data?.data ?? []
         setAllDocRequests(docs)
-        // Pending counts per type (RH only)
         if (isRH) {
           const pending = docs.filter(d => d.status === 'en_attente')
           setPendingByType({
@@ -335,15 +327,14 @@ export default function Dashboard() {
       .finally(() => setDocLoading(false))
   }, [])
 
-  // Split doc requests by type for the section cards
   const recentByType = {
     att_travail:   allDocRequests.filter(d => d.demande === 'att_travail').slice(0, 4),
     att_salaire:   allDocRequests.filter(d => d.demande === 'att_salaire').slice(0, 4),
     bulletin_paie: allDocRequests.filter(d => d.demande === 'bulletin_paie').slice(0, 4),
   }
 
-  const pendingTeamConges   = conges.filter(c => ['soumis', 'reached'].includes(c.status))
-  const totalPendingDocs    = Object.values(pendingByType).reduce((a, b) => a + b, 0)
+  const pendingTeamConges = conges.filter(c => ['soumis', 'reached'].includes(c.status))
+  const totalPendingDocs  = Object.values(pendingByType).reduce((a, b) => a + b, 0)
 
   return (
     <div className="space-y-6">
@@ -360,27 +351,27 @@ export default function Dashboard() {
 
       {/* ── Stat cards ── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        {(isRH || isManager) && (
+        {isSupervisor && (
           <StatCard
-            label="Salaries actifs"
+            label="Salariés actifs"
             value={salarieTotal}
-            sub="dans votre perimetre"
+            sub="dans votre périmètre"
             icon={<IconUsers />}
             color="azure"
           />
         )}
 
         <StatCard
-          label={isRH || isManager ? 'Conges en attente' : 'Mes conges'}
-          value={isRH || isManager ? pendingTeamConges.length : congeTotal}
-          sub={isRH || isManager ? 'necessitent une action' : 'demandes au total'}
+          label={isSupervisor ? 'Congés en attente' : 'Mes congés'}
+          value={isSupervisor ? pendingTeamConges.length : congeTotal}
+          sub={isSupervisor ? 'nécessitent une action' : 'demandes au total'}
           icon={<IconCalendar />}
           color="amber"
         />
 
         {isFonctionnaire && (
           <StatCard
-            label="Solde de conges"
+            label="Solde de congés"
             value={`${salarie?.mon_cong ?? 0} j`}
             sub="jours disponibles"
             icon={<IconCalendar />}
@@ -388,12 +379,11 @@ export default function Dashboard() {
           />
         )}
 
-        {/* Clickable docs card */}
         {isRH ? (
           <ClickableStatCard
             label="Docs en attente"
             value={totalPendingDocs}
-            sub="cliquer pour le detail par type"
+            sub="cliquer pour le détail par type"
             icon={<IconDocRequest />}
             color={showDocBreakdown ? 'azure' : 'rose'}
             onClick={() => setShowDocBreakdown(v => !v)}
@@ -410,24 +400,21 @@ export default function Dashboard() {
         )}
       </div>
 
-      {/* ── Doc breakdown panel (RH, toggled) ── */}
+      {/* ── Doc breakdown (RH) ── */}
       {isRH && showDocBreakdown && (
-        <DocTypeBreakdownCard
-          counts={pendingByType}
-          onClose={() => setShowDocBreakdown(false)}
-        />
+        <DocTypeBreakdownCard counts={pendingByType} onClose={() => setShowDocBreakdown(false)} />
       )}
 
       {/* ── Content grid ── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-        {/* ════ LEFT COLUMN ════ */}
+        {/* LEFT COLUMN */}
         <div className="space-y-5">
 
-          {/* Pending team conges — manager/RH */}
-          {(isRH || isManager) && (
+          {/* Pending team conges for supervisors */}
+          {isSupervisor && (
             <SectionCard
-              title="Demandes de conge en attente"
+              title="Demandes de congé en attente"
               subtitle={isRH ? 'Transmises au RH' : 'En attente de traitement'}
               linkTo="/conges"
               loading={false}
@@ -440,10 +427,10 @@ export default function Dashboard() {
             </SectionCard>
           )}
 
-          {/* My personal conges */}
-          {(isRH || isManager) && (
+          {/* Personal conges for supervisors */}
+          {isSupervisor && (
             <SectionCard
-              title="Mes demandes de conge"
+              title="Mes demandes de congé"
               subtitle="Suivi de vos propres demandes"
               linkTo="/conges"
               loading={myCongesLoading}
@@ -458,7 +445,7 @@ export default function Dashboard() {
 
           {isFonctionnaire && (
             <SectionCard
-              title="Mes demandes de conge"
+              title="Mes demandes de congé"
               subtitle="Suivi de vos demandes en cours"
               linkTo="/conges"
               loading={false}
@@ -471,58 +458,28 @@ export default function Dashboard() {
             </SectionCard>
           )}
 
-          {/* Recent attestations de travail */}
-          <SectionCard
-            title="Attestations de travail"
-            subtitle="Demandes recentes"
-            linkTo="/documents"
-            loading={docLoading}
-            empty={!docLoading && recentByType.att_travail.length === 0}
-            emptyText="Aucune demande"
-          >
-            {recentByType.att_travail.map(r => (
-              <DocRequestRow key={r.id} request={r} />
-            ))}
+          <SectionCard title="Attestations de travail" subtitle="Demandes récentes" linkTo="/documents"
+            loading={docLoading} empty={!docLoading && recentByType.att_travail.length === 0} emptyText="Aucune demande">
+            {recentByType.att_travail.map(r => <DocRequestRow key={r.id} request={r} />)}
           </SectionCard>
         </div>
 
-        {/* ════ RIGHT COLUMN ════ */}
+        {/* RIGHT COLUMN */}
         <div className="space-y-5">
 
-          {/* Recent attestations de salaire */}
-          <SectionCard
-            title="Attestations de salaire"
-            subtitle="Demandes recentes"
-            linkTo="/documents"
-            loading={docLoading}
-            empty={!docLoading && recentByType.att_salaire.length === 0}
-            emptyText="Aucune demande"
-          >
-            {recentByType.att_salaire.map(r => (
-              <DocRequestRow key={r.id} request={r} />
-            ))}
+          <SectionCard title="Attestations de salaire" subtitle="Demandes récentes" linkTo="/documents"
+            loading={docLoading} empty={!docLoading && recentByType.att_salaire.length === 0} emptyText="Aucune demande">
+            {recentByType.att_salaire.map(r => <DocRequestRow key={r.id} request={r} />)}
           </SectionCard>
 
-          {/* Recent bulletins de paie requests */}
-          <SectionCard
-            title="Bulletins de paie"
-            subtitle="Demandes recentes"
-            linkTo="/documents"
-            loading={docLoading}
-            empty={!docLoading && recentByType.bulletin_paie.length === 0}
-            emptyText="Aucune demande"
-          >
-            {recentByType.bulletin_paie.map(r => (
-              <DocRequestRow key={r.id} request={r} />
-            ))}
+          <SectionCard title="Bulletins de paie" subtitle="Demandes récentes" linkTo="/documents"
+            loading={docLoading} empty={!docLoading && recentByType.bulletin_paie.length === 0} emptyText="Aucune demande">
+            {recentByType.bulletin_paie.map(r => <DocRequestRow key={r.id} request={r} />)}
           </SectionCard>
 
-          {/* RH urgent alert */}
           {isRH && totalPendingDocs > 0 && !showDocBreakdown && (
-            <div
-              className="card border-amber-200 bg-amber-50/30 cursor-pointer hover:shadow-card-lg transition-all"
-              onClick={() => setShowDocBreakdown(true)}
-            >
+            <div className="card border-amber-200 bg-amber-50/30 cursor-pointer hover:shadow-card-lg transition-all"
+              onClick={() => setShowDocBreakdown(true)}>
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-xl bg-amber-100 border border-amber-200 flex items-center justify-center flex-shrink-0">
                   <svg className="w-4 h-4 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -531,9 +488,9 @@ export default function Dashboard() {
                 </div>
                 <div className="flex-1">
                   <p className="text-sm font-semibold text-amber-800">
-                    {totalPendingDocs} demande{totalPendingDocs > 1 ? 's' : ''} a traiter
+                    {totalPendingDocs} demande{totalPendingDocs > 1 ? 's' : ''} à traiter
                   </p>
-                  <p className="text-xs text-amber-600">Cliquer pour voir le detail par type</p>
+                  <p className="text-xs text-amber-600">Cliquer pour voir le détail par type</p>
                 </div>
                 <svg className="w-4 h-4 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />

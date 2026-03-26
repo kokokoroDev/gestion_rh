@@ -71,7 +71,6 @@ function DayBreakdown({ days }) {
 
   return (
     <div className="mt-3 pt-3 border-t border-surface-100 space-y-2">
-      {/* Summary pills */}
       <div className="flex items-center gap-1.5 flex-wrap">
         <span className="text-[10px] font-semibold text-surface-500 uppercase tracking-wide mr-1">Jours:</span>
         {fullDays > 0 && (
@@ -88,19 +87,13 @@ function DayBreakdown({ days }) {
         )}
       </div>
 
-      {/* Day pills */}
       <div className="flex flex-wrap gap-1.5">
-        {shown.map((day, i) => (
-          <DayPill key={i} day={day} />
-        ))}
+        {shown.map((day, i) => <DayPill key={i} day={day} />)}
       </div>
 
       {hasMore && (
-        <button
-          type="button"
-          onClick={() => setExpanded(e => !e)}
-          className="text-xs text-azure-600 hover:text-azure-700 font-medium flex items-center gap-1 transition-colors"
-        >
+        <button type="button" onClick={() => setExpanded(e => !e)}
+          className="text-xs text-azure-600 hover:text-azure-700 font-medium flex items-center gap-1 transition-colors">
           <svg className={`w-3 h-3 transition-transform ${expanded ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
           </svg>
@@ -131,14 +124,13 @@ function CongeProgressBar({ status }) {
     <div className="mt-2.5">
       <div className="flex items-center">
         {STATUS_STEPS.map((step, i) => {
-          const done  = i <= currentIdx
+          const done   = i <= currentIdx
           const isLast = i === STATUS_STEPS.length - 1
           const labels = { soumis: 'Soumis', reached: 'Chez RH', accepte: 'Accepté' }
           return (
             <div key={step} className="flex items-center flex-1">
               <div className="flex flex-col items-center flex-shrink-0">
-                <div className={`
-                  w-4 h-4 rounded-full border-2 flex items-center justify-center transition-all
+                <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center transition-all
                   ${done
                     ? isLast
                       ? 'border-emerald-500 bg-emerald-500'
@@ -146,8 +138,7 @@ function CongeProgressBar({ status }) {
                         ? 'border-azure-500 bg-azure-500 ring-2 ring-azure-200'
                         : 'border-azure-400 bg-azure-400'
                     : 'border-surface-300 bg-white'
-                  }
-                `}>
+                  }`}>
                   {done && (
                     <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
@@ -164,8 +155,7 @@ function CongeProgressBar({ status }) {
               </div>
               {i < STATUS_STEPS.length - 1 && (
                 <div className={`flex-1 h-0.5 mb-3.5 mx-0.5 rounded-full transition-all
-                  ${i < currentIdx ? 'bg-azure-400' : 'bg-surface-200'}`}
-                />
+                  ${i < currentIdx ? 'bg-azure-400' : 'bg-surface-200'}`} />
               )}
             </div>
           )
@@ -178,14 +168,13 @@ function CongeProgressBar({ status }) {
 // ─── My conge card ─────────────────────────────────────────────────────────────
 
 function MyCongeCard({ conge, onCancel, cancelling, confirmCancel, setConfirmCancel }) {
-  const canCancel  = ['soumis', 'reached'].includes(conge.status)
-  const totalJours = parseFloat(conge.jours ?? 0)
-  const days       = conge.days ?? []
+  const canCancel   = ['soumis', 'reached'].includes(conge.status)
+  const totalJours  = parseFloat(conge.jours ?? 0)
+  const days        = conge.days ?? []
   const hasHalfDays = days.some(d => d.is_half_day)
 
   return (
     <div className="border border-surface-100 rounded-xl p-4 hover:border-surface-200 hover:shadow-card transition-all">
-      {/* Header row */}
       <div className="flex items-start justify-between gap-3 mb-1">
         <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-full bg-azure-600 flex items-center justify-center flex-shrink-0">
@@ -195,13 +184,10 @@ function MyCongeCard({ conge, onCancel, cancelling, confirmCancel, setConfirmCan
           </div>
           <div>
             <p className="text-sm font-semibold text-azure-700">Moi</p>
-            <p className="text-xs text-surface-500">
-              {CONGE_TYPE_LABELS[conge.type_conge] ?? conge.type_conge}
-            </p>
+            <p className="text-xs text-surface-500">{CONGE_TYPE_LABELS[conge.type_conge] ?? conge.type_conge}</p>
           </div>
         </div>
 
-        {/* Right: total + dates */}
         <div className="text-right flex-shrink-0">
           <div className="flex items-baseline gap-1 justify-end">
             <span className="text-lg font-bold text-surface-900 leading-none">{totalJours}</span>
@@ -211,20 +197,14 @@ function MyCongeCard({ conge, onCancel, cancelling, confirmCancel, setConfirmCan
             {formatDate(conge.date_debut)} → {formatDate(conge.date_fin)}
           </span>
           {hasHalfDays && (
-            <span className="block text-[10px] text-amber-600 font-medium mt-0.5">
-              Demi-journées incluses
-            </span>
+            <span className="block text-[10px] text-amber-600 font-medium mt-0.5">Demi-journées incluses</span>
           )}
         </div>
       </div>
 
-      {/* Progress bar */}
       <CongeProgressBar status={conge.status} />
-
-      {/* Day breakdown */}
       <DayBreakdown days={days} />
 
-      {/* Cancel button */}
       {canCancel && (
         <div className="mt-3 pt-2.5 border-t border-surface-100 flex justify-end">
           {confirmCancel === conge.id ? (
@@ -235,10 +215,8 @@ function MyCongeCard({ conge, onCancel, cancelling, confirmCancel, setConfirmCan
               <button onClick={() => setConfirmCancel(null)} className="btn-secondary text-xs px-3 py-1.5">Non</button>
             </div>
           ) : (
-            <button
-              onClick={() => setConfirmCancel(conge.id)}
-              className="btn-ghost text-xs text-rose-500 hover:bg-rose-50 px-3 py-1.5"
-            >
+            <button onClick={() => setConfirmCancel(conge.id)}
+              className="btn-ghost text-xs text-rose-500 hover:bg-rose-50 px-3 py-1.5">
               Annuler la demande
             </button>
           )}
@@ -263,18 +241,21 @@ function Avatar({ prenom = '', nom = '' }) {
 export default function Conges({ to = 'my' }) {
   const dispatch = useDispatch()
   const toast    = useToast()
-  const { isRH, isManager, isFonctionnaire, isTeamlead , salarie } = useAuth()
+  const { isRH, isManager, isTeamLead, isFonctionnaire, salarie } = useAuth()
 
   const teamConges = useSelector(selectConges)
   const total      = useSelector(selectCongeTotal)
   const loading    = useSelector(selectCongeLoading)
   const submitting = useSelector(selectCongeSubmitting)
 
-  const [myConges,   setMyConges]   = useState([])
-  const [myLoading,  setMyLoading]  = useState(false)
-  const [myTotal,    setMyTotal]    = useState(0)
-  const [myPage,     setMyPage]     = useState(0)
-  const [myFilters,  setMyFilters]  = useState({ status: '', type_conge: '' })
+  // For managers and team_leads: their own personal conges fetched separately
+  const [myConges,  setMyConges]  = useState([])
+  const [myLoading, setMyLoading] = useState(false)
+  const [myTotal,   setMyTotal]   = useState(0)
+  const [myPage,    setMyPage]    = useState(0)
+  const [myFilters, setMyFilters] = useState({ status: '', type_conge: '' })
+
+  const isSupervisor = isRH || isManager || isTeamLead
 
   const [tab,           setTab]           = useState(to)
   const [showForm,      setShowForm]      = useState(false)
@@ -283,6 +264,7 @@ export default function Conges({ to = 'my' }) {
   const [page,          setPage]          = useState(0)
   const [confirmCancel, setConfirmCancel] = useState(null)
 
+  // ── Load team conges (for the team tab) ───────────────────────────────────
   const loadTeam = useCallback(() => {
     const params = {
       limit:  LIMIT,
@@ -293,8 +275,9 @@ export default function Conges({ to = 'my' }) {
     dispatch(fetchConges(params))
   }, [dispatch, filters, page])
 
+  // ── Load own conges (for supervisors' "Mes demandes" tab) ─────────────────
   const loadMine = useCallback(() => {
-    if (!isRH && (!isManager || !isTeamlead) ) return
+    if (!isSupervisor) return
     setMyLoading(true)
     const params = {
       limit:  LIMIT,
@@ -311,10 +294,10 @@ export default function Conges({ to = 'my' }) {
       })
       .catch(() => setMyConges([]))
       .finally(() => setMyLoading(false))
-  }, [isRH, isManager, salarie?.id, myPage, myFilters])
+  }, [isSupervisor, salarie?.id, myPage, myFilters])
 
   useEffect(() => { loadTeam() }, [loadTeam])
-  useEffect(() => { if (isRH || isManager) loadMine() }, [loadMine])
+  useEffect(() => { if (isSupervisor) loadMine() }, [loadMine, isSupervisor])
 
   const handleCancel = async (id) => {
     const res = await dispatch(cancelConge(id))
@@ -330,7 +313,7 @@ export default function Conges({ to = 'my' }) {
 
   const tabs = [
     { key: 'my',       label: 'Mes demandes' },
-    ...((isRH || isManager) ? [{ key: 'team', label: isRH ? 'Équipe / Tous' : 'Mon équipe' }] : []),
+    ...((isSupervisor) ? [{ key: 'team', label: isRH ? 'Équipe / Tous' : 'Mon équipe' }] : []),
     { key: 'calendar', label: 'Calendrier' },
   ]
 
@@ -341,15 +324,12 @@ export default function Conges({ to = 'my' }) {
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex bg-surface-100 rounded-xl p-1 gap-1">
           {tabs.map((t) => (
-            <button
-              key={t.key}
-              onClick={() => setTab(t.key)}
+            <button key={t.key} onClick={() => setTab(t.key)}
               className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                 tab === t.key
                   ? 'bg-white text-surface-800 shadow-card'
                   : 'text-surface-500 hover:text-surface-700'
-              }`}
-            >
+              }`}>
               {t.label}
             </button>
           ))}
@@ -378,38 +358,27 @@ export default function Conges({ to = 'my' }) {
       {tab === 'my' && (
         <>
           <div className="card flex flex-wrap gap-3">
-            <select
-              className="input-base w-48"
-              value={myFilters.status}
-              onChange={(e) => { setMyFilters(f => ({ ...f, status: e.target.value })); setMyPage(0) }}
-            >
+            <select className="input-base w-48" value={myFilters.status}
+              onChange={(e) => { setMyFilters(f => ({ ...f, status: e.target.value })); setMyPage(0) }}>
               {STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
             </select>
-            <select
-              className="input-base w-48"
-              value={myFilters.type_conge}
-              onChange={(e) => { setMyFilters(f => ({ ...f, type_conge: e.target.value })); setMyPage(0) }}
-            >
+            <select className="input-base w-48" value={myFilters.type_conge}
+              onChange={(e) => { setMyFilters(f => ({ ...f, type_conge: e.target.value })); setMyPage(0) }}>
               <option value="">Tous types</option>
               {Object.entries(CONGE_TYPE_LABELS).map(([v, l]) => (
                 <option key={v} value={v}>{l}</option>
               ))}
             </select>
-            <button
-              onClick={() => { setMyFilters({ status: '', type_conge: '' }); setMyPage(0) }}
-              className="btn-ghost text-sm"
-            >
+            <button onClick={() => { setMyFilters({ status: '', type_conge: '' }); setMyPage(0) }} className="btn-ghost text-sm">
               Réinitialiser
             </button>
           </div>
 
-          {/* Fonctionnaire — redux state */}
+          {/* Fonctionnaire — uses redux team state (own conges) */}
           {isFonctionnaire && (
             <>
               {loading ? (
-                <div className="flex items-center justify-center py-16">
-                  <Spinner size="lg" className="text-azure-500" />
-                </div>
+                <div className="flex items-center justify-center py-16"><Spinner size="lg" className="text-azure-500" /></div>
               ) : teamConges.length === 0 ? (
                 <div className="card text-center py-16 text-surface-400">
                   <svg className="w-10 h-10 mx-auto mb-3 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -420,14 +389,8 @@ export default function Conges({ to = 'my' }) {
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {teamConges.map(conge => (
-                    <MyCongeCard
-                      key={conge.id}
-                      conge={conge}
-                      onCancel={handleCancel}
-                      cancelling={submitting}
-                      confirmCancel={confirmCancel}
-                      setConfirmCancel={setConfirmCancel}
-                    />
+                    <MyCongeCard key={conge.id} conge={conge} onCancel={handleCancel}
+                      cancelling={submitting} confirmCancel={confirmCancel} setConfirmCancel={setConfirmCancel} />
                   ))}
                 </div>
               )}
@@ -443,13 +406,11 @@ export default function Conges({ to = 'my' }) {
             </>
           )}
 
-          {/* Manager / RH — local state */}
-          {(isRH || isManager) && (
+          {/* Supervisors (manager / team_lead / RH) — local state */}
+          {isSupervisor && (
             <>
               {myLoading ? (
-                <div className="flex items-center justify-center py-16">
-                  <Spinner size="lg" className="text-azure-500" />
-                </div>
+                <div className="flex items-center justify-center py-16"><Spinner size="lg" className="text-azure-500" /></div>
               ) : myConges.length === 0 ? (
                 <div className="card text-center py-16 text-surface-400">
                   <svg className="w-10 h-10 mx-auto mb-3 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -460,14 +421,8 @@ export default function Conges({ to = 'my' }) {
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {myConges.map(conge => (
-                    <MyCongeCard
-                      key={conge.id}
-                      conge={conge}
-                      onCancel={handleCancel}
-                      cancelling={submitting}
-                      confirmCancel={confirmCancel}
-                      setConfirmCancel={setConfirmCancel}
-                    />
+                    <MyCongeCard key={conge.id} conge={conge} onCancel={handleCancel}
+                      cancelling={submitting} confirmCancel={confirmCancel} setConfirmCancel={setConfirmCancel} />
                   ))}
                 </div>
               )}
@@ -477,30 +432,21 @@ export default function Conges({ to = 'my' }) {
       )}
 
       {/* ── Team tab ── */}
-      {tab === 'team' && (isRH || isManager) && (
+      {tab === 'team' && isSupervisor && (
         <>
           <div className="card flex flex-wrap gap-3">
-            <select
-              className="input-base w-48"
-              value={filters.status}
-              onChange={(e) => { setFilters(f => ({ ...f, status: e.target.value })); setPage(0) }}
-            >
+            <select className="input-base w-48" value={filters.status}
+              onChange={(e) => { setFilters(f => ({ ...f, status: e.target.value })); setPage(0) }}>
               {STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
             </select>
-            <select
-              className="input-base w-48"
-              value={filters.type_conge}
-              onChange={(e) => { setFilters(f => ({ ...f, type_conge: e.target.value })); setPage(0) }}
-            >
+            <select className="input-base w-48" value={filters.type_conge}
+              onChange={(e) => { setFilters(f => ({ ...f, type_conge: e.target.value })); setPage(0) }}>
               <option value="">Tous types</option>
               {Object.entries(CONGE_TYPE_LABELS).map(([v, l]) => (
                 <option key={v} value={v}>{l}</option>
               ))}
             </select>
-            <button
-              onClick={() => { setFilters({ status: isRH ? 'reached' : '', type_conge: '' }); setPage(0) }}
-              className="btn-ghost text-sm"
-            >
+            <button onClick={() => { setFilters({ status: isRH ? 'reached' : '', type_conge: '' }); setPage(0) }} className="btn-ghost text-sm">
               Réinitialiser
             </button>
             <div className="ml-auto flex items-center gap-2 text-sm text-surface-400">
@@ -510,9 +456,7 @@ export default function Conges({ to = 'my' }) {
 
           <div className="card p-0 overflow-hidden">
             {loading ? (
-              <div className="flex items-center justify-center py-16">
-                <Spinner size="lg" className="text-azure-500" />
-              </div>
+              <div className="flex items-center justify-center py-16"><Spinner size="lg" className="text-azure-500" /></div>
             ) : teamConges.length === 0 ? (
               <div className="text-center py-16 text-surface-400">
                 <svg className="w-10 h-10 mx-auto mb-3 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -534,7 +478,7 @@ export default function Conges({ to = 'my' }) {
                   </thead>
                   <tbody className="divide-y divide-surface-50">
                     {teamConges.map(conge => {
-                      const canAction      = ['soumis', 'reached'].includes(conge.status)
+                      const canAction         = ['soumis', 'reached'].includes(conge.status)
                       const canRefuseAccepted = isRH && conge.status === 'accepte'
 
                       return (
@@ -552,9 +496,7 @@ export default function Conges({ to = 'my' }) {
                               </div>
                             </div>
                           </td>
-                          <td className="px-5 py-3.5 text-surface-600">
-                            {CONGE_TYPE_LABELS[conge.type_conge]}
-                          </td>
+                          <td className="px-5 py-3.5 text-surface-600">{CONGE_TYPE_LABELS[conge.type_conge]}</td>
                           <td className="px-5 py-3.5">
                             <div>
                               <span className="font-mono text-xs bg-surface-100 px-2 py-1 rounded-lg">
@@ -577,10 +519,7 @@ export default function Conges({ to = 'my' }) {
                           </td>
                           <td className="px-5 py-3.5 text-right">
                             {(canAction || canRefuseAccepted) && (
-                              <button
-                                onClick={() => setSelected(conge)}
-                                className="btn-secondary text-xs px-3 py-1.5"
-                              >
+                              <button onClick={() => setSelected(conge)} className="btn-secondary text-xs px-3 py-1.5">
                                 Traiter
                               </button>
                             )}

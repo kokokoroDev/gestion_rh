@@ -4,16 +4,16 @@ import { overlapCondition, countWorkingDays } from "../utils/conge.js";
 import { createAndNotify } from "../utils/notification.js";
 import { io } from "../index.js";
 import {
-    isRH, isManager, getPrimaryRole,
-    getManagerModuleIds, getFonctionnaireModuleIds
+    isRH, isManager, isTeamlead, getPrimaryRole,
+    getManagerModuleIds, getTeamLeaderModuleIds, getFonctionnaireModuleIds
 } from '../utils/role.js';
 
 const { Conge, CongeDay, Salarie, SalarieRoleModule, Role, Module } = models;
 
-// ─── Min advance days for a conge request ────────────────────────────────────
+// ─── Min advance days ─────────────────────────────────────────────────────────
 const MIN_ADVANCE_DAYS = 15;
 
-// ─── Shared salarie include (with roles) ─────────────────────────────────────
+// ─── Shared includes ──────────────────────────────────────────────────────────
 const salarieWithRolesInclude = {
     model:      Salarie,
     as:         'salarie',
@@ -26,7 +26,6 @@ const salarieWithRolesInclude = {
     }],
 };
 
-// ─── CongeDay include ─────────────────────────────────────────────────────────
 const congeDaysInclude = {
     model:      CongeDay,
     as:         'days',
@@ -35,6 +34,18 @@ const congeDaysInclude = {
 };
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
+
+/** Returns combined module ids for manager + team_lead roles */
+const getMyModuleIds = (salarieInfo) => [
+    ...new Set([
+        ...getManagerModuleIds(salarieInfo),
+        ...getTeamLeaderModuleIds(salarieInfo),
+    ])
+];
+
+/** Is this user a manager or team_lead (but not RH)? */
+const isNonRHSupervisor = (s) =>
+    (isManager(s) || isTeamlead(s)) && !isRH(s);
 
 const buildAccessWhere = (salarieInfo, extraFilters = {}) => {
     const { id: sal_id } = salarieInfo;
@@ -51,10 +62,10 @@ const buildAccessWhere = (salarieInfo, extraFilters = {}) => {
         }
     }
 
-    if (extraFilters.status && !isRH(salarieInfo))                           where.status     = extraFilters.status;
-    if (extraFilters.status && isRH(salarieInfo) && extraFilters.sal_id)     where.status     = extraFilters.status;
-    if (extraFilters.type_conge)                                              where.type_conge = extraFilters.type_conge;
-    if (extraFilters.sal_id && isManager(salarieInfo) && !isRH(salarieInfo)) where.sal_id     = extraFilters.sal_id;
+    if (extraFilters.status && !isRH(salarieInfo))                                where.status     = extraFilters.status;
+    if (extraFilters.status && isRH(salarieInfo) && extraFilters.sal_id)          where.status     = extraFilters.status;
+    if (extraFilters.type_conge)                                                   where.type_conge = extraFilters.type_conge;
+    if (extraFilters.sal_id && isNonRHSupervisor(salarieInfo))                    where.sal_id     = extraFilters.sal_id;
 
     if (extraFilters.date_from || extraFilters.date_to) {
         where.date_debut = {};
@@ -65,17 +76,9 @@ const buildAccessWhere = (salarieInfo, extraFilters = {}) => {
     return where;
 };
 
-/**
- * Compute total working days from a CongeDay array.
- * Each full day = 1, each half-day = 0.5.
- */
 const sumDays = (days) =>
     days.reduce((sum, d) => sum + (d.is_half_day ? 0.5 : 1), 0);
 
-/**
- * Auto-generate full-day CongeDay entries for every weekday in [debut, fin].
- * Used as a fallback when no explicit `days` array is provided.
- */
 const generateDefaultDays = (debut, fin) => {
     const result = [];
     const curr   = new Date(debut);
@@ -121,7 +124,7 @@ export const soumettreConge = async (data, salarieId) => {
         );
     }
 
-    // ── Build final days array ────────────────────────────────────────────────
+    // ── Build days array ──────────────────────────────────────────────────────
     const daysToCreate = (rawDays && rawDays.length > 0)
         ? rawDays.map(d => ({
             date:        typeof d.date === 'string' ? d.date : new Date(d.date).toISOString().split('T')[0],
@@ -139,7 +142,7 @@ export const soumettreConge = async (data, salarieId) => {
         throw new Error('Le total des jours demandés doit être supérieur à 0');
     }
 
-    // ── Overlap check (own requests) ─────────────────────────────────────────
+    // ── Overlap check ─────────────────────────────────────────────────────────
     const selfOverlap = await Conge.findOne({
         where: {
             sal_id: salarieId,
@@ -153,7 +156,7 @@ export const soumettreConge = async (data, salarieId) => {
         );
     }
 
-    // ── Load submitter with their roles ───────────────────────────────────────
+    // ── Load submitter with roles ─────────────────────────────────────────────
     const salarie = await Salarie.findByPk(salarieId, {
         include: [{
             model:   SalarieRoleModule,
@@ -173,7 +176,7 @@ export const soumettreConge = async (data, salarieId) => {
     const primaryRole  = getPrimaryRole(salarieInfo);
     const allModuleIds = salarie.roleModules.map(r => r.module_id).filter(Boolean);
 
-    // ── Balance check (only for paid leave) ──────────────────────────────────
+    // ── Balance check ─────────────────────────────────────────────────────────
     if (type_conge === 'vacance' && parseFloat(salarie.mon_cong) < joursOuvrables) {
         throw new Error(
             `Solde insuffisant: ${salarie.mon_cong} jours disponibles, ${joursOuvrables} jour(s) demandé(s)`
@@ -204,17 +207,18 @@ export const soumettreConge = async (data, salarieId) => {
         }
     }
 
-    const initialStatus = ['manager', 'rh'].includes(primaryRole) ? 'reached' : 'soumis';
+    // Supervisors (manager, team_lead, rh) skip the soumis step
+    const initialStatus = ['manager', 'team_lead', 'rh'].includes(primaryRole) ? 'reached' : 'soumis';
 
-    // ── Create conge + days (single transaction) ──────────────────────────────
+    // ── Create conge + days ───────────────────────────────────────────────────
     const { conge } = await sequelizeCon.transaction(async (t) => {
         const newConge = await Conge.create({
-            sal_id:     salarieId,
+            sal_id:      salarieId,
             type_conge,
             date_debut,
             date_fin,
-            jours:      joursOuvrables,
-            status:     initialStatus,
+            jours:       joursOuvrables,
+            status:      initialStatus,
             commentaire: commentaire || null,
         }, { transaction: t });
 
@@ -227,9 +231,12 @@ export const soumettreConge = async (data, salarieId) => {
     });
 
     // ── Notifications ─────────────────────────────────────────────────────────
+    const notifMsg = `${salarie.prenom} ${salarie.nom} a demandé ${joursOuvrables}j du ${date_debut} au ${date_fin}`;
+
     if (primaryRole === 'fonctionnaire') {
         const fonctionnaireModuleIds = getFonctionnaireModuleIds(salarieInfo);
         if (fonctionnaireModuleIds.length > 0) {
+            // Notify managers in the same module(s)
             const managerRoleRow = await Role.findOne({ where: { name: 'manager' } });
             if (managerRoleRow) {
                 const managerAssignments = await SalarieRoleModule.findAll({
@@ -240,7 +247,25 @@ export const soumettreConge = async (data, salarieId) => {
                     await createAndNotify(io, ma.sal_id, 'manager', {
                         type:                'leave_request_submitted',
                         title:               'Nouvelle demande de congé',
-                        message:             `${salarie.prenom} ${salarie.nom} a demandé ${joursOuvrables}j du ${date_debut} au ${date_fin}`,
+                        message:             notifMsg,
+                        related_entity_id:   conge.id,
+                        related_entity_type: 'conge',
+                    }).catch(() => {});
+                }
+            }
+
+            // Notify team_leads in the same module(s)
+            const teamLeadRoleRow = await Role.findOne({ where: { name: 'team_lead' } });
+            if (teamLeadRoleRow) {
+                const teamLeadAssignments = await SalarieRoleModule.findAll({
+                    where:   { role_id: teamLeadRoleRow.id, module_id: { [Op.in]: fonctionnaireModuleIds } },
+                    include: [{ model: Salarie, as: 'salarie', where: { status: 'active' }, attributes: ['id'] }],
+                });
+                for (const tl of teamLeadAssignments) {
+                    await createAndNotify(io, tl.sal_id, 'team_lead', {
+                        type:                'leave_request_submitted',
+                        title:               'Nouvelle demande de congé',
+                        message:             notifMsg,
                         related_entity_id:   conge.id,
                         related_entity_type: 'conge',
                     }).catch(() => {});
@@ -249,6 +274,7 @@ export const soumettreConge = async (data, salarieId) => {
         }
     }
 
+    // Supervisors whose conge goes straight to RH — notify all RH
     if (initialStatus === 'reached') {
         const rhRoleRow = await Role.findOne({ where: { name: 'rh' } });
         if (rhRoleRow) {
@@ -268,36 +294,43 @@ export const soumettreConge = async (data, salarieId) => {
         }
     }
 
-    // Reload with days for the response
     const reloaded = await conge.reload({ include: [congeDaysInclude] });
     return { conge: reloaded, warning: teamOverlapWarning };
 };
 
 export const getConges = async (filters = {}, salarieInfo) => {
     const { limit = 10, offset = 0 } = filters;
-    const where              = buildAccessWhere(salarieInfo, filters);
-    const managerModuleIds   = getManagerModuleIds(salarieInfo);
+    const where = buildAccessWhere(salarieInfo, filters);
 
-    const innerRmInclude = (isManager(salarieInfo) && !isRH(salarieInfo))
-        ? { model: SalarieRoleModule, as: 'roleModules',
-            where: { module_id: { [Op.in]: managerModuleIds } }, required: true,
-            include: [{ model: Module, as: 'module', attributes: ['id', 'libelle'] }] }
-        : { model: SalarieRoleModule, as: 'roleModules',
-            include: [{ model: Module, as: 'module', attributes: ['id', 'libelle'] }] };
+    const myModuleIds = getMyModuleIds(salarieInfo);
 
-    if (isManager(salarieInfo) && !isRH(salarieInfo) && !managerModuleIds.length) {
+    if (isNonRHSupervisor(salarieInfo) && !myModuleIds.length) {
         throw new Error("Vous n'êtes pas associé à un module");
     }
+
+    const innerRmInclude = isNonRHSupervisor(salarieInfo)
+        ? {
+            model:    SalarieRoleModule,
+            as:       'roleModules',
+            where:    { module_id: { [Op.in]: myModuleIds } },
+            required: true,
+            include:  [{ model: Module, as: 'module', attributes: ['id', 'libelle'] }],
+          }
+        : {
+            model:   SalarieRoleModule,
+            as:      'roleModules',
+            include: [{ model: Module, as: 'module', attributes: ['id', 'libelle'] }],
+          };
 
     const result = await Conge.findAndCountAll({
         where,
         include: [
             {
-                model:    Salarie,
-                as:       'salarie',
+                model:      Salarie,
+                as:         'salarie',
                 attributes: ['id', 'prenom', 'nom'],
-                required: isManager(salarieInfo) && !isRH(salarieInfo),
-                include:  [innerRmInclude],
+                required:   isNonRHSupervisor(salarieInfo),
+                include:    [innerRmInclude],
             },
             congeDaysInclude,
         ],
@@ -321,10 +354,10 @@ export const getCongeById = async (id, salarieInfo) => {
     if (primaryRole === 'fonctionnaire' && conge.sal_id !== salarieInfo.id) {
         throw new Error('Accès refusé');
     }
-    if (isManager(salarieInfo) && !isRH(salarieInfo)) {
-        const managerModuleIds = getManagerModuleIds(salarieInfo);
-        const ownerModuleIds   = conge.salarie.roleModules.map(r => r.module_id).filter(Boolean);
-        if (!ownerModuleIds.some(m => managerModuleIds.includes(m))) throw new Error('Accès refusé');
+    if (isNonRHSupervisor(salarieInfo)) {
+        const myModuleIds    = getMyModuleIds(salarieInfo);
+        const ownerModuleIds = conge.salarie.roleModules.map(r => r.module_id).filter(Boolean);
+        if (!ownerModuleIds.some(m => myModuleIds.includes(m))) throw new Error('Accès refusé');
     }
 
     return conge;
@@ -349,18 +382,22 @@ export const updateCongeStatus = async (id, newStatus, salarieInfo) => {
         })),
     });
 
-    if (isManager(salarieInfo) && !isRH(salarieInfo)) {
-        const managerModuleIds = getManagerModuleIds(salarieInfo);
-        if (!ownerModuleIds.some(m => managerModuleIds.includes(m))) throw new Error('Accès refusé');
-        if (ownerPrimaryRole === 'manager' && newStatus === 'reached') {
-            throw new Error("Impossible de transférer la demande d'un autre manager");
+    // Access check for non-RH supervisors
+    if (isNonRHSupervisor(salarieInfo)) {
+        const myModuleIds = getMyModuleIds(salarieInfo);
+        if (!ownerModuleIds.some(m => myModuleIds.includes(m))) throw new Error('Accès refusé');
+        if (['manager', 'team_lead'].includes(ownerPrimaryRole) && newStatus === 'reached') {
+            throw new Error("Impossible de transférer la demande d'un autre manager ou team lead");
         }
     }
 
     const currentStatus = conge.status;
+
+    // Allowed transitions per role
     const allowed = {
-        manager: { reached: ['soumis'], refuse: ['soumis'] },
-        rh:      { accepte: ['soumis', 'reached'], refuse: ['soumis', 'reached', 'accepte'] },
+        manager:   { reached: ['soumis'], refuse: ['soumis'] },
+        team_lead: { reached: ['soumis'], refuse: ['soumis'] },
+        rh:        { accepte: ['soumis', 'reached'], refuse: ['soumis', 'reached', 'accepte'] },
     };
 
     const allowedForRole = allowed[primaryRole];
@@ -371,7 +408,6 @@ export const updateCongeStatus = async (id, newStatus, salarieInfo) => {
         throw new Error(`Transition invalide: "${currentStatus}" → "${newStatus}" non autorisée`);
     }
 
-    // Use stored jours field; fall back to countWorkingDays if somehow 0
     const joursOuvrables = parseFloat(conge.jours) || countWorkingDays(
         new Date(conge.date_debut), new Date(conge.date_fin)
     );
@@ -392,8 +428,6 @@ export const updateCongeStatus = async (id, newStatus, salarieInfo) => {
         }
 
         await conge.update({ status: newStatus }, { transaction: t });
-
-        // Reload salarie to get updated mon_cong
         await salarie.reload({ transaction: t });
 
         return conge.reload({
@@ -401,7 +435,6 @@ export const updateCongeStatus = async (id, newStatus, salarieInfo) => {
                 {
                     model:      Salarie,
                     as:         'salarie',
-                    // Include mon_cong so frontend auth slice can sync it
                     attributes: ['id', 'prenom', 'nom', 'mon_cong'],
                 },
                 congeDaysInclude,
@@ -415,6 +448,7 @@ export const updateCongeStatus = async (id, newStatus, salarieInfo) => {
             reached: 'Votre demande de congé a été transmise au RH',
         };
 
+        // Notify the conge owner
         await createAndNotify(io, updatedConge.sal_id, 'fonctionnaire', {
             type:                newStatus === 'accepte' ? 'leave_request_approved' : 'leave_request_rejected',
             title:               `Statut de congé: ${newStatus}`,
@@ -423,6 +457,7 @@ export const updateCongeStatus = async (id, newStatus, salarieInfo) => {
             related_entity_type: 'conge',
         }).catch(() => {});
 
+        // When forwarded to RH, notify all RH
         if (newStatus === 'reached') {
             const rhRoleRow = await Role.findOne({ where: { name: 'rh' } });
             if (rhRoleRow) {
@@ -453,7 +488,7 @@ export const cancelConge = async (id, salarieId) => {
     if (!['soumis', 'reached'].includes(conge.status)) {
         throw new Error('Seules les demandes en attente (soumis/reached) peuvent être annulées');
     }
-    await conge.destroy(); // CongeDay rows cascade-delete
+    await conge.destroy();
     return true;
 };
 
@@ -466,13 +501,18 @@ export const getCalendar = async (filters, salarieInfo) => {
     if (isNaN(debut) || isNaN(fin)) throw new Error('Dates invalides');
     if (fin < debut) throw new Error('date_to doit être après date_from');
 
-    const nonRHModuleIds = !isRH(salarieInfo)
-        ? salarieInfo.roles.map(r => r.module_id).filter(Boolean)
-        : null;
-
-    const rmWhere = {};
-    if (isRH(salarieInfo) && filterModule)   rmWhere.module_id = filterModule;
-    else if (nonRHModuleIds?.length)          rmWhere.module_id = { [Op.in]: nonRHModuleIds };
+    // Determine which modules to scope to
+    let rmWhere = {};
+    if (isRH(salarieInfo) && filterModule) {
+        rmWhere.module_id = filterModule;
+    } else if (isNonRHSupervisor(salarieInfo)) {
+        const myModuleIds = getMyModuleIds(salarieInfo);
+        if (myModuleIds.length) rmWhere.module_id = { [Op.in]: myModuleIds };
+    } else if (!isRH(salarieInfo)) {
+        // Fonctionnaire — scope to their own modules
+        const moduleIds = salarieInfo.roles.map(r => r.module_id).filter(Boolean);
+        if (moduleIds.length) rmWhere.module_id = { [Op.in]: moduleIds };
+    }
 
     const conges = await Conge.findAll({
         where: { status: 'accepte', date_debut: { [Op.lte]: date_to }, date_fin: { [Op.gte]: date_from } },

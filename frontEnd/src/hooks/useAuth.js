@@ -13,15 +13,15 @@ import {
 import { getModuleIds } from '@/utils/roles'
 
 export const useAuth = () => {
-    const dispatch = useDispatch()
-    const navigate = useNavigate()
-    const auth = useSelector(selectAuth)
-    const salarie = useSelector(selectSalarie)
-    const role = useSelector(selectRole)
-    const isRH = useSelector(selectIsRH)
+    const dispatch  = useDispatch()
+    const navigate  = useNavigate()
+    const auth      = useSelector(selectAuth)
+    const salarie   = useSelector(selectSalarie)
+    const role      = useSelector(selectRole)
+    const isRH      = useSelector(selectIsRH)
     const isManager = useSelector(selectIsManager)
-    const isTeamlead = useSelector(selectIsTeamLead)
-    const moduleId = useSelector(selectIsTeamLead)
+    const isTeamLead = useSelector(selectIsTeamLead)
+    const moduleId  = useSelector(selectModuleId)   // fixed: was selectIsTeamLead
 
     const handleLogout = () => {
         dispatch(logout())
@@ -33,13 +33,13 @@ export const useAuth = () => {
         role,
         isRH,
         isManager,
-        isTeamlead,
+        isTeamLead,
         isFonctionnaire: role === 'fonctionnaire',
         isAuthenticated: !!auth.token,
-        loading: auth.loading,
-        error: auth.error,
-        moduleId,                                    
-        moduleIds: getModuleIds(salarie),   
-        logout: handleLogout,
+        loading:         auth.loading,
+        error:           auth.error,
+        moduleId,
+        moduleIds:       getModuleIds(salarie),
+        logout:          handleLogout,
     }
 }

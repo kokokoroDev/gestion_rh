@@ -30,17 +30,16 @@ router.get('/calendar', validate(calendarSchema, 'query'), congeController.getCa
 
 router.get('/:id', congeController.getCongeById);
 
-
 router.put(
   '/:id/status',
-  allowRoles('manager', 'rh'),
+  allowRoles('manager', 'team_lead', 'rh'),
   validate(updateCongeStatusSchema),
   congeController.updateCongeStatus
 );
 
 router.delete(
   '/:id',
-  allowRoles('fonctionnaire', 'manager', 'rh'),
+  allowRoles('fonctionnaire', 'manager', 'team_lead', 'rh'),
   congeController.cancelConge
 );
 
