@@ -1,78 +1,156 @@
-import path    from 'path';
-import fs      from 'fs';
-import XLSX    from 'xlsx';
-import models  from '../db/models/index.js';
+import { Op } from 'sequelize';
+import models from '../db/models/index.js';
 import { isRH } from '../utils/role.js';
 
-const { TeletravailData, Salarie } = models;
+const { TeletravailSchedule, TeletravailEntry, Salarie, Module, Conge, SalarieRoleModule } = models;
 
-const uploaderInclude = {
-    model:      Salarie,
-    as:         'uploader',
-    attributes: ['id', 'prenom', 'nom'],
+// Helper to get days of the week for a given week start (Monday)
+const getDaysOfWeek = (weekStart) => {
+    const start = new Date(weekStart);
+    const days = [];
+    for (let i = 0; i < 7; i++) {
+        const d = new Date(start);
+        d.setDate(start.getDate() + i);
+        days.push(d.toISOString().slice(0, 10));
+    }
+    return days; // [Monday, Tuesday, ..., Sunday]
 };
 
-const parseExcel = (filePath) => {
-    const workbook  = XLSX.readFile(filePath, { cellDates: true, dateNF: 'dd/mm/yyyy' });
-    const sheetName = workbook.SheetNames[0];
-    if (!sheetName) throw new Error('Le fichier Excel ne contient aucune feuille');
+export const getSchedule = async (moduleId, weekStart, salarieInfo) => {
+    if (!moduleId) throw new Error('Module ID required');
+    if (!weekStart) throw new Error('Week start required');
 
-    const sheet = workbook.Sheets[sheetName];
-    const raw = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+    const module = await Module.findByPk(moduleId);
+    if (!module) throw new Error('Module not found');
 
-    if (!raw.length) throw new Error('La feuille est vide');
+    const schedule = await TeletravailSchedule.findOne({
+        where: { module_id: moduleId, week_start: weekStart },
+        include: [{ model: TeletravailEntry, as: 'entries' }],
+    });
 
-    const rawHeaders = raw[0].map(h => String(h ?? '').trim());
-    const lastNonEmpty = rawHeaders.reduce((acc, h, i) => h !== '' ? i : acc, -1);
-    if (lastNonEmpty === -1) throw new Error("La première ligne d'en-tête est vide");
+    // Active employees of this module
+    const employees = await Salarie.findAll({
+        include: [{
+            model: SalarieRoleModule,
+            as: 'roleModules',
+            where: { module_id: moduleId },
+            required: true,
+        }],
+        where: { status: 'active' },
+        attributes: ['id', 'prenom', 'nom', 'email'],
+        order: [['nom', 'ASC'], ['prenom', 'ASC']],
+    });
 
-    const columns = rawHeaders.slice(0, lastNonEmpty + 1);
+    const daysOfWeek = getDaysOfWeek(weekStart);
+    const startDate = daysOfWeek[0];
+    const endDate = daysOfWeek[6];
 
-    const rows = raw.slice(1)
-        .filter(row => row.some(cell => String(cell ?? '').trim() !== ''))
-        .map(row =>
-            columns.reduce((obj, col, i) => {
-                obj[col] = String(row[i] ?? '').trim();
-                return obj;
-            }, {})
-        );
+    // Fetch approved congés for these employees during the week
+    const conges = await Conge.findAll({
+        where: {
+            sal_id: { [Op.in]: employees.map(e => e.id) },
+            status: 'accepte',
+            [Op.or]: [
+                { date_debut: { [Op.between]: [startDate, endDate] } },
+                { date_fin: { [Op.between]: [startDate, endDate] } },
+                {
+                    [Op.and]: [
+                        { date_debut: { [Op.lte]: startDate } },
+                        { date_fin: { [Op.gte]: endDate } },
+                    ],
+                },
+            ],
+        },
+    });
 
-    return { columns, rows, sheetName };
-};
+    // Build conge map: salarie_id -> array of booleans for each day
+    const congeMap = {};
+    for (const emp of employees) {
+        congeMap[emp.id] = new Array(7).fill(false);
+    }
+    for (const conge of conges) {
+        const start = new Date(conge.start_date);
+        const end = new Date(conge.end_date);
+        for (let i = 0; i < daysOfWeek.length; i++) {
+            const dayDate = new Date(daysOfWeek[i]);
+            if (dayDate >= start && dayDate <= end) {
+                congeMap[conge.sal_id][i] = true;
+            }
+        }
+    }
 
-export const uploadTeletravail = async (file, salarieInfo) => {
-    if (!isRH(salarieInfo)) throw new Error('Accès refusé — RH uniquement');
-    if (!file)               throw new Error('Aucun fichier fourni');
+    // Build entry map from schedule
+    const entryMap = {};
+    if (schedule) {
+        for (const entry of schedule.entries) {
+            if (!entryMap[entry.salarie_id]) entryMap[entry.salarie_id] = {};
+            entryMap[entry.salarie_id][entry.day_of_week] = entry.is_teletravail;
+        }
+    }
 
-    const { columns, rows, sheetName } = parseExcel(file.path);
+    // Prepare rows
+    const rows = employees.map(emp => {
+        const days = [];
+        for (let i = 0; i < daysOfWeek.length; i++) {
+            const isTeletravail = entryMap[emp.id]?.[i] || false;
+            const hasConge = congeMap[emp.id][i];
+            days.push({ isTeletravail, hasConge });
+        }
+        return {
+            id: emp.id,
+            prenom: emp.prenom,
+            nom: emp.nom,
+            email: emp.email,
+            days,
+        };
+    });
 
-    try { fs.unlinkSync(file.path); } catch { /* ok */ }
-
-    await TeletravailData.destroy({ where: {} });
-
-    const record = await TeletravailData.create({
-        file_name:   file.originalname,
-        file_size:   file.size,
-        columns,
+    return {
+        module,
+        weekStart,
+        daysOfWeek, // array of date strings
         rows,
-        row_count:   rows.length,
-        sheet_name:  sheetName,
-        uploaded_by: salarieInfo.id,
-    });
-
-    return record.reload({ include: [uploaderInclude] });
+        scheduleId: schedule?.id || null,
+    };
 };
 
-export const getTeletravail = async () => {
-    const record = await TeletravailData.findOne({
-        include: [uploaderInclude],
-        order:   [['created_at', 'DESC']],
-    });
-    return record ?? null;
-};
-
-export const deleteTeletravail = async (salarieInfo) => {
+export const updateEntry = async (scheduleId, salarieId, dayOfWeek, isTeletravail, salarieInfo) => {
     if (!isRH(salarieInfo)) throw new Error('Accès refusé — RH uniquement');
-    await TeletravailData.destroy({ where: {} });
+
+    const schedule = await TeletravailSchedule.findByPk(scheduleId);
+    if (!schedule) throw new Error('Schedule not found');
+
+    const [entry, created] = await TeletravailEntry.findOrCreate({
+        where: { schedule_id: scheduleId, salarie_id: salarieId, day_of_week: dayOfWeek },
+        defaults: { is_teletravail },
+    });
+    if (!created) {
+        entry.is_teletravail = isTeletravail;
+        await entry.save();
+    }
+    return entry;
+};
+
+export const createSchedule = async (moduleId, weekStart, salarieInfo) => {
+    if (!isRH(salarieInfo)) throw new Error('Accès refusé — RH uniquement');
+
+    const existing = await TeletravailSchedule.findOne({
+        where: { module_id: moduleId, week_start: weekStart },
+    });
+    if (existing) return existing;
+
+    const schedule = await TeletravailSchedule.create({
+        module_id: moduleId,
+        week_start: weekStart,
+        created_by: salarieInfo.id,
+    });
+    return schedule;
+};
+
+export const deleteSchedule = async (scheduleId, salarieInfo) => {
+    if (!isRH(salarieInfo)) throw new Error('Accès refusé — RH uniquement');
+    const schedule = await TeletravailSchedule.findByPk(scheduleId);
+    if (!schedule) throw new Error('Schedule not found');
+    await schedule.destroy();
     return true;
 };

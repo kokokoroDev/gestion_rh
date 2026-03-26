@@ -1,16 +1,17 @@
-import { Router }     from 'express';
+import { Router } from 'express';
 import { authenticate } from '../middleware/auth.js';
-import { allowRoles }   from '../middleware/role.js';
+import { allowRoles } from '../middleware/role.js';
 import * as teletravailController from '../controllers/teletravailController.js';
 
 const router = Router();
 router.use(authenticate);
 
-// Everyone sees the table
-router.get('/', teletravailController.getTeletravail);
+router.get('/', teletravailController.getSchedule);
 
-// RH only — upload replaces current data
-router.post('/',   allowRoles('rh'), teletravailController.uploadTeletravail);
-router.delete('/', allowRoles('rh'), teletravailController.deleteTeletravail);
+router.post('/', allowRoles('rh'), teletravailController.createSchedule);
+
+router.put('/entries/:scheduleId/:salarieId/:dayOfWeek', allowRoles('rh'), teletravailController.updateEntry);
+
+router.delete('/:scheduleId', allowRoles('rh'), teletravailController.deleteSchedule);
 
 export default router;
