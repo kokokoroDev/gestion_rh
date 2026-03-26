@@ -12,4 +12,20 @@ export const teletravailApi = {
 
     deleteSchedule: (scheduleId) =>
         api.delete(`/teletravail/${scheduleId}`),
+
+    exportExcel: (moduleId, weekStart) =>
+        api.get('/teletravail/export', {
+            params: { moduleId, weekStart },
+            responseType: 'blob'
+        }),
+
+    importExcel: (moduleId, weekStart, file) => {
+        const formData = new FormData();
+        formData.append('moduleId', moduleId);
+        formData.append('weekStart', weekStart);
+        formData.append('file', file);
+        return api.post('/teletravail/import', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+        });
+    }
 };

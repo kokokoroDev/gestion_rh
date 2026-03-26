@@ -11,6 +11,8 @@ router.get('/', teletravailController.getSchedule);
 router.post('/', allowRoles('rh'), teletravailController.createSchedule);
 
 router.put('/entries/:scheduleId/:salarieId/:dayOfWeek', allowRoles('rh'), teletravailController.updateEntry);
+router.get('/export', teletravailController.exportExcel);
+router.post('/import', allowRoles('rh'), teletravailController.importExcel);
 
 router.delete('/:scheduleId', allowRoles('rh'), teletravailController.deleteSchedule);
 
