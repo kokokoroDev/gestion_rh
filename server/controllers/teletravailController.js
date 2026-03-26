@@ -1,4 +1,4 @@
-import * as teletravailService from '../services/teletravailServices.js'
+import * as teletravailService from '../services/teletravailServices'
 
 export const getSchedule = async (req, res, next) => {
     try {

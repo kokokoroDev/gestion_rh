@@ -51,12 +51,12 @@ export const getSchedule = async (moduleId, weekStart, salarieInfo) => {
             sal_id: { [Op.in]: employees.map(e => e.id) },
             status: 'accepte',
             [Op.or]: [
-                { date_debut: { [Op.between]: [startDate, endDate] } },
-                { date_fin: { [Op.between]: [startDate, endDate] } },
+                { start_date: { [Op.between]: [startDate, endDate] } },
+                { end_date: { [Op.between]: [startDate, endDate] } },
                 {
                     [Op.and]: [
-                        { date_debut: { [Op.lte]: startDate } },
-                        { date_fin: { [Op.gte]: endDate } },
+                        { start_date: { [Op.lte]: startDate } },
+                        { end_date: { [Op.gte]: endDate } },
                     ],
                 },
             ],
