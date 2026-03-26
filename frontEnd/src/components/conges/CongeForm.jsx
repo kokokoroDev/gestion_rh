@@ -35,14 +35,38 @@ const FR_MONTHS = ['jan', 'fév', 'mar', 'avr', 'mai', 'jun', 'jul', 'aoû', 'se
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-/** Minimum allowed start date: today + 15 days */
-const getMinDate = () => {
-    const d = new Date()
-    d.setDate(d.getDate() + 15)
+/** True if a YYYY-MM-DD string falls on Saturday(6) or Sunday(0) */
+const isWeekend = (dateStr) => {
+    if (!dateStr) return false
+    const d = new Date(dateStr + 'T00:00:00')
+    return d.getDay() === 0 || d.getDay() === 6
+}
+
+/**
+ * If dateStr is a weekend, advance to the next Monday.
+ * Otherwise return dateStr unchanged.
+ */
+const clampToWeekday = (dateStr) => {
+    if (!dateStr) return dateStr
+    const d = new Date(dateStr + 'T00:00:00')
+    const dow = d.getDay()
+    if (dow === 6) d.setDate(d.getDate() + 2) // Sat → Mon
+    if (dow === 0) d.setDate(d.getDate() + 1) // Sun → Mon
     return d.toISOString().split('T')[0]
 }
 
-/** Generate all weekday dates between from and to (inclusive) */
+/** Minimum allowed start date: today + 15 days, clamped to weekday */
+const getMinDate = () => {
+    const d = new Date()
+    d.setDate(d.getDate() + 15)
+    // advance to next weekday if needed
+    const dow = d.getDay()
+    if (dow === 6) d.setDate(d.getDate() + 2)
+    if (dow === 0) d.setDate(d.getDate() + 1)
+    return d.toISOString().split('T')[0]
+}
+
+/** Generate all weekday (Mon–Fri) dates between from and to inclusive */
 const generateWorkdays = (from, to) => {
     if (!from || !to) return []
     const result = []
@@ -51,10 +75,7 @@ const generateWorkdays = (from, to) => {
     while (curr <= end) {
         const dow = curr.getDay()
         if (dow !== 0 && dow !== 6) {
-            result.push({
-                date: curr.toISOString().split('T')[0],
-                type: 'full',
-            })
+            result.push({ date: curr.toISOString().split('T')[0], type: 'full' })
         }
         curr.setDate(curr.getDate() + 1)
     }
@@ -77,14 +98,12 @@ const countTotal = (days) =>
 function DayRow({ day, onChange }) {
     return (
         <div className="flex items-center gap-3 py-2 border-b border-surface-50 last:border-0 group">
-            {/* Date label */}
             <span className={`text-sm w-24 flex-shrink-0 font-medium ${
                 day.type === 'excluded' ? 'text-surface-300 line-through' : 'text-surface-700'
             }`}>
                 {formatDayLabel(day.date)}
             </span>
 
-            {/* Type selector — segmented pill buttons */}
             <div className="flex gap-1 flex-1">
                 {DAY_TYPES.map((opt) => {
                     const isActive = day.type === opt.value
@@ -105,17 +124,12 @@ function DayRow({ day, onChange }) {
                                 ${isActive ? activeClasses[opt.color] : idleClasses}
                             `}
                         >
-                            {opt.short === '—' ? (
-                                <span className="text-[10px]">—</span>
-                            ) : (
-                                opt.short
-                            )}
+                            {opt.short === '—' ? <span className="text-[10px]">—</span> : opt.short}
                         </button>
                     )
                 })}
             </div>
 
-            {/* Days count badge */}
             <span className={`text-xs font-mono w-8 text-right flex-shrink-0 ${
                 day.type === 'excluded'    ? 'text-surface-300' :
                 day.type === 'full'        ? 'text-azure-600 font-semibold' :
@@ -144,16 +158,14 @@ export default function CongeForm({ open, onClose }) {
         date_fin:    '',
         commentaire: '',
     })
-    const [days,  setDays]  = useState([])
-    const [step,  setStep]  = useState(1) // 1 = type+dates, 2 = days review
+    const [days, setDays] = useState([])
 
     const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
-    // Regenerate days list whenever date range changes
+    // Regenerate days whenever date range changes
     useEffect(() => {
         if (form.date_debut && form.date_fin && form.date_fin >= form.date_debut) {
-            const generated = generateWorkdays(form.date_debut, form.date_fin)
-            setDays(generated)
+            setDays(generateWorkdays(form.date_debut, form.date_fin))
         } else {
             setDays([])
         }
@@ -163,9 +175,7 @@ export default function CongeForm({ open, onClose }) {
         setDays(prev => prev.map(d => d.date === date ? { ...d, type } : d))
     }, [])
 
-    const selectAll = (type) => {
-        setDays(prev => prev.map(d => ({ ...d, type })))
-    }
+    const selectAll = (type) => setDays(prev => prev.map(d => ({ ...d, type })))
 
     const total         = countTotal(days)
     const activeDays    = days.filter(d => d.type !== 'excluded')
@@ -173,6 +183,24 @@ export default function CongeForm({ open, onClose }) {
     const isOverBalance = form.type_conge === 'vacance' && total > balance
 
     const canProceed = form.date_debut && form.date_fin && form.date_fin >= form.date_debut && activeDays.length > 0
+
+    // ── Date change handlers — clamp weekends away ────────────────────────────
+
+    const handleDebutChange = (rawVal) => {
+        const val = clampToWeekday(rawVal)
+        set('date_debut', val)
+        // If fin is now before debut, reset fin
+        if (form.date_fin && form.date_fin < val) {
+            set('date_fin', '')
+        }
+    }
+
+    const handleFinChange = (rawVal) => {
+        const val = clampToWeekday(rawVal)
+        set('date_fin', val)
+    }
+
+    // ── Submit ────────────────────────────────────────────────────────────────
 
     const handleSubmit = async (e) => {
         e.preventDefault()
@@ -204,7 +232,6 @@ export default function CongeForm({ open, onClose }) {
 
     const handleClose = () => {
         dispatch(resetSubmit())
-        setStep(1)
         setForm({ type_conge: 'vacance', date_debut: '', date_fin: '', commentaire: '' })
         setDays([])
         onClose()
@@ -219,7 +246,7 @@ export default function CongeForm({ open, onClose }) {
         >
             <form onSubmit={handleSubmit} className="space-y-5">
 
-                {/* ── Step 1: Type ─────────────────────────────────────────── */}
+                {/* ── Type de congé ─────────────────────────────────────────── */}
                 <div>
                     <label className="block text-xs font-semibold text-surface-500 uppercase tracking-wide mb-2">
                         Type de congé
@@ -250,21 +277,19 @@ export default function CongeForm({ open, onClose }) {
                 <div>
                     <label className="block text-xs font-semibold text-surface-500 uppercase tracking-wide mb-2">
                         Période demandée
+                        <span className="ml-2 text-[10px] font-normal text-surface-400 normal-case">
+                            (weekends exclus automatiquement)
+                        </span>
                     </label>
                     <div className="flex items-center gap-3">
                         <div className="flex-1">
                             <label className="block text-xs text-surface-500 mb-1">Du</label>
                             <input
                                 type="date"
-                                className="input-base"
+                                className={`input-base ${isWeekend(form.date_debut) ? 'border-amber-400 bg-amber-50' : ''}`}
                                 value={form.date_debut}
                                 min={minDate}
-                                onChange={(e) => {
-                                    set('date_debut', e.target.value)
-                                    if (form.date_fin && e.target.value > form.date_fin) {
-                                        set('date_fin', e.target.value)
-                                    }
-                                }}
+                                onChange={(e) => handleDebutChange(e.target.value)}
                                 required
                             />
                         </div>
@@ -273,26 +298,29 @@ export default function CongeForm({ open, onClose }) {
                             <label className="block text-xs text-surface-500 mb-1">Au</label>
                             <input
                                 type="date"
-                                className="input-base"
+                                className={`input-base ${isWeekend(form.date_fin) ? 'border-amber-400 bg-amber-50' : ''}`}
                                 value={form.date_fin}
                                 min={form.date_debut || minDate}
-                                onChange={(e) => set('date_fin', e.target.value)}
+                                onChange={(e) => handleFinChange(e.target.value)}
                                 required
                             />
                         </div>
                     </div>
-                    {/* 15-day notice */}
-                    <p className="text-xs text-surface-400 mt-1.5 flex items-center gap-1.5">
-                        <svg className="w-3.5 h-3.5 text-azure-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        Les demandes doivent être soumises au moins 15 jours à l'avance
-                        {minDate && (
-                            <span className="text-azure-500 font-medium">
-                                (au plus tôt le {new Date(minDate + 'T00:00:00').toLocaleDateString('fr-FR', { day: '2-digit', month: 'long' })})
-                            </span>
-                        )}
-                    </p>
+
+                    {/* Info row */}
+                    <div className="flex flex-wrap gap-3 mt-1.5">
+                        <p className="text-xs text-surface-400 flex items-center gap-1.5">
+                            <svg className="w-3.5 h-3.5 text-azure-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            Préavis minimum 15 jours
+                            {minDate && (
+                                <span className="text-azure-500 font-medium">
+                                    · au plus tôt le {new Date(minDate + 'T00:00:00').toLocaleDateString('fr-FR', { day: '2-digit', month: 'long' })}
+                                </span>
+                            )}
+                        </p>
+                    </div>
                 </div>
 
                 {/* ── Day picker ───────────────────────────────────────────── */}
@@ -300,22 +328,18 @@ export default function CongeForm({ open, onClose }) {
                     <div>
                         <div className="flex items-center justify-between mb-2">
                             <label className="text-xs font-semibold text-surface-500 uppercase tracking-wide">
-                                Jours sélectionnés
+                                Jours ouvrables sélectionnés
+                                <span className="ml-1.5 text-[10px] font-normal normal-case text-surface-400">
+                                    (sam. &amp; dim. exclus)
+                                </span>
                             </label>
-                            {/* Quick-select all */}
                             <div className="flex gap-1.5">
-                                <button
-                                    type="button"
-                                    onClick={() => selectAll('full')}
-                                    className="text-xs px-2 py-1 rounded-lg bg-azure-50 text-azure-600 hover:bg-azure-100 transition-colors font-medium"
-                                >
+                                <button type="button" onClick={() => selectAll('full')}
+                                    className="text-xs px-2 py-1 rounded-lg bg-azure-50 text-azure-600 hover:bg-azure-100 transition-colors font-medium">
                                     Tout — journées
                                 </button>
-                                <button
-                                    type="button"
-                                    onClick={() => selectAll('morning')}
-                                    className="text-xs px-2 py-1 rounded-lg bg-amber-50 text-amber-600 hover:bg-amber-100 transition-colors font-medium"
-                                >
+                                <button type="button" onClick={() => selectAll('morning')}
+                                    className="text-xs px-2 py-1 rounded-lg bg-amber-50 text-amber-600 hover:bg-amber-100 transition-colors font-medium">
                                     Tout — matins
                                 </button>
                             </div>
@@ -329,11 +353,11 @@ export default function CongeForm({ open, onClose }) {
                             </span>
                             <span className="flex items-center gap-1">
                                 <span className="inline-block w-5 h-4 rounded bg-amber-500 text-white text-center text-[9px] leading-4 font-bold">AM</span>
-                                Matin ½ journée
+                                Matin ½j
                             </span>
                             <span className="flex items-center gap-1">
                                 <span className="inline-block w-5 h-4 rounded bg-amber-500 text-white text-center text-[9px] leading-4 font-bold">PM</span>
-                                Après-midi ½ journée
+                                Après-midi ½j
                             </span>
                             <span className="flex items-center gap-1">
                                 <span className="inline-block w-5 h-4 rounded bg-surface-200 text-surface-500 text-center text-[9px] leading-4 font-bold">—</span>
@@ -341,11 +365,7 @@ export default function CongeForm({ open, onClose }) {
                             </span>
                         </div>
 
-                        {/* Days list */}
-                        <div className={`
-                            border border-surface-100 rounded-xl px-4 py-1 bg-white
-                            ${days.length > 8 ? 'max-h-52 overflow-y-auto' : ''}
-                        `}>
+                        <div className={`border border-surface-100 rounded-xl px-4 py-1 bg-white ${days.length > 8 ? 'max-h-52 overflow-y-auto' : ''}`}>
                             {days.map(day => (
                                 <DayRow key={day.date} day={day} onChange={updateDay} />
                             ))}
@@ -363,9 +383,7 @@ export default function CongeForm({ open, onClose }) {
                         `}>
                             <div className="flex items-center gap-2">
                                 <span className="text-xs text-surface-500">Total demandé:</span>
-                                <span className={`text-sm font-bold font-mono ${
-                                    isOverBalance ? 'text-rose-600' : 'text-emerald-700'
-                                }`}>
+                                <span className={`text-sm font-bold font-mono ${isOverBalance ? 'text-rose-600' : 'text-emerald-700'}`}>
                                     {total} jour{total !== 1 ? 's' : ''}
                                 </span>
                                 {total !== activeDays.length && (
@@ -377,9 +395,7 @@ export default function CongeForm({ open, onClose }) {
                             {form.type_conge === 'vacance' && (
                                 <div className="flex items-center gap-2">
                                     <span className="text-xs text-surface-500">Solde disponible:</span>
-                                    <span className={`text-sm font-bold font-mono ${
-                                        isOverBalance ? 'text-rose-600' : 'text-emerald-600'
-                                    }`}>
+                                    <span className={`text-sm font-bold font-mono ${isOverBalance ? 'text-rose-600' : 'text-emerald-600'}`}>
                                         {balance} j
                                     </span>
                                     {isOverBalance && (
@@ -399,6 +415,16 @@ export default function CongeForm({ open, onClose }) {
                                 Tous les jours sont exclus — sélectionnez au moins un jour
                             </p>
                         )}
+                    </div>
+                )}
+
+                {/* If range only contains weekends, show warning */}
+                {form.date_debut && form.date_fin && form.date_fin >= form.date_debut && days.length === 0 && (
+                    <div className="flex items-center gap-2 px-4 py-3 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-700">
+                        <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                        </svg>
+                        La période sélectionnée ne contient aucun jour ouvrable (lun–ven).
                     </div>
                 )}
 
