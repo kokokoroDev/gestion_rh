@@ -13,13 +13,14 @@ import { ROLE_LABELS, ROLE_COLORS } from '@/utils/formatters'
 
 const ROLES_RH = [
     { value: 'fonctionnaire', label: 'Fonctionnaire' },
-    { value: 'manager',       label: 'Manager' },
-    { value: 'rh',            label: 'RH' },
+    { value: 'team_lead', label: 'Team Lead' },
+    { value: 'manager', label: 'Manager' },
+    { value: 'rh', label: 'RH' },
 ]
 
 const ROLES_MANAGER = [
     { value: 'fonctionnaire', label: 'Fonctionnaire' },
-    { value: 'manager',       label: 'Manager' },
+    { value: 'rh', label: 'RH' },
 ]
 
 let _tempIdCounter = 0
@@ -28,7 +29,7 @@ const nextTempId = () => `new-${++_tempIdCounter}`
 // ─── Assignment row component (RH mode) ──────────────────────────────────────
 function AssignmentRow({ assignment, modules, onRoleChange, onRemove, canRemove }) {
     const moduleLabel = modules.find(m => m.id === assignment.module_id)?.libelle
-                     ?? (assignment.moduleLabel || null)
+        ?? (assignment.moduleLabel || null)
 
     return (
         <div className="flex items-center gap-2 p-3 bg-surface-50 rounded-xl border border-surface-100">
@@ -80,15 +81,15 @@ function AssignmentRow({ assignment, modules, onRoleChange, onRemove, canRemove 
 // ─── Main form ────────────────────────────────────────────────────────────────
 export default function SalarieForm({ open, onClose, existing }) {
     const dispatch = useDispatch()
-    const toast    = useToast()
+    const toast = useToast()
     const { isRH, salarie: currentUser } = useAuth()
 
     const isEdit = !!existing
 
     // ── Core fields ───────────────────────────────────────────────────────────
     const blankForm = { cin: '', prenom: '', nom: '', email: '', password: '', mon_cong: '0', status: 'active' }
-    const [form,        setForm]        = useState(blankForm)
-    const [submitting,  setSubmitting]  = useState(false)
+    const [form, setForm] = useState(blankForm)
+    const [submitting, setSubmitting] = useState(false)
     const [submitError, setSubmitError] = useState(null)
 
     // ── Modules list for dropdowns ────────────────────────────────────────────
@@ -96,18 +97,18 @@ export default function SalarieForm({ open, onClose, existing }) {
 
     // ── RH: dynamic role-module assignments ───────────────────────────────────
     // Each item: { tempId, id (DB id or null), role, module_id, moduleLabel, isNew, originalRole }
-    const [assignments, setAssignments]  = useState([])
+    const [assignments, setAssignments] = useState([])
     // IDs of existing DB rows to delete on save
-    const [deletedIds,  setDeletedIds]   = useState([])
+    const [deletedIds, setDeletedIds] = useState([])
 
     // ── Manager: single assignment ────────────────────────────────────────────
     // Limited to their own modules; uses a simpler state
     const managerModules = (currentUser?.roleModules ?? [])
         .filter(rm => rm.roleRef?.name === 'manager' && rm.module_id)
         .map(rm => ({ id: rm.module_id, libelle: rm.module?.libelle ?? '' }))
-        .filter((m, i, arr) => arr.findIndex(x => x.id === m.id) === i)
+        .filter((m, i, arr) => arr.findIndex(x => x.id === m.id) === i)    
 
-    const [managerRole,   setManagerRole]   = useState('fonctionnaire')
+    const [managerRole, setManagerRole] = useState('fonctionnaire')
     const [managerModule, setManagerModule] = useState('')
 
     // ── Reset on open ─────────────────────────────────────────────────────────
@@ -118,23 +119,23 @@ export default function SalarieForm({ open, onClose, existing }) {
 
         if (existing) {
             setForm({
-                cin:      existing.cin       ?? '',
-                prenom:   existing.prenom    ?? '',
-                nom:      existing.nom       ?? '',
-                email:    existing.email     ?? '',
+                cin: existing.cin ?? '',
+                prenom: existing.prenom ?? '',
+                nom: existing.nom ?? '',
+                email: existing.email ?? '',
                 password: '',
                 mon_cong: String(existing.mon_cong ?? 0),
-                status:   existing.status    ?? 'active',
+                status: existing.status ?? 'active',
             })
             // Populate RH assignments from existing.roleModules
             setAssignments(
                 (existing.roleModules ?? []).map(rm => ({
-                    tempId:       rm.id,
-                    id:           rm.id,
-                    role:         rm.roleRef?.name ?? 'fonctionnaire',
-                    module_id:    rm.module_id ?? '',
-                    moduleLabel:  rm.module?.libelle ?? null,
-                    isNew:        false,
+                    tempId: rm.id,
+                    id: rm.id,
+                    role: rm.roleRef?.name ?? 'fonctionnaire',
+                    module_id: rm.module_id ?? '',
+                    moduleLabel: rm.module?.libelle ?? null,
+                    isNew: false,
                     originalRole: rm.roleRef?.name ?? 'fonctionnaire',
                 }))
             )
@@ -142,12 +143,12 @@ export default function SalarieForm({ open, onClose, existing }) {
             setForm(blankForm)
             // Start with one blank assignment
             setAssignments([{
-                tempId:       nextTempId(),
-                id:           null,
-                role:         'fonctionnaire',
-                module_id:    '',
-                moduleLabel:  null,
-                isNew:        true,
+                tempId: nextTempId(),
+                id: null,
+                role: 'fonctionnaire',
+                module_id: '',
+                moduleLabel: null,
+                isNew: true,
                 originalRole: 'fonctionnaire',
             }])
             setManagerRole('fonctionnaire')
@@ -170,12 +171,12 @@ export default function SalarieForm({ open, onClose, existing }) {
 
     const addAssignment = () => {
         setAssignments(a => [...a, {
-            tempId:      nextTempId(),
-            id:          null,
-            role:        'fonctionnaire',
-            module_id:   '',
+            tempId: nextTempId(),
+            id: null,
+            role: 'fonctionnaire',
+            module_id: '',
             moduleLabel: null,
-            isNew:       true,
+            isNew: true,
             originalRole: 'fonctionnaire',
         }])
     }
@@ -241,12 +242,12 @@ export default function SalarieForm({ open, onClose, existing }) {
         if (isEdit) {
             // 1. Core fields
             const corePayload = {
-                cin:      form.cin,
-                prenom:   form.prenom,
-                nom:      form.nom,
-                email:    form.email,
+                cin: form.cin,
+                prenom: form.prenom,
+                nom: form.nom,
+                email: form.email,
                 mon_cong: parseFloat(form.mon_cong) || 0,
-                status:   form.status,
+                status: form.status,
                 ...(form.password ? { password: form.password } : {}),
             }
             const coreRes = await dispatch(updateSalarie({ id: existing.id, ...corePayload }))
@@ -265,7 +266,7 @@ export default function SalarieForm({ open, onClose, existing }) {
                 const isDirty = a.isNew || a.role !== a.originalRole
                 if (isDirty) {
                     await salarieApi.update(existing.id, {
-                        role:      a.role,
+                        role: a.role,
                         ...(a.module_id ? { module_id: a.module_id } : {}),
                     })
                 }
@@ -275,14 +276,14 @@ export default function SalarieForm({ open, onClose, existing }) {
             // Create — first assignment goes into createSalarie, rest via update
             const first = assignments[0]
             const payload = {
-                cin:      form.cin,
-                prenom:   form.prenom,
-                nom:      form.nom,
-                email:    form.email,
+                cin: form.cin,
+                prenom: form.prenom,
+                nom: form.nom,
+                email: form.email,
                 password: form.password,
                 mon_cong: parseFloat(form.mon_cong) || 0,
-                status:   form.status,
-                role:     first?.role ?? 'fonctionnaire',
+                status: form.status,
+                role: first?.role ?? 'fonctionnaire',
                 ...(first?.module_id ? { module_id: first.module_id } : {}),
             }
             const res = await dispatch(createSalarie(payload))
@@ -293,7 +294,7 @@ export default function SalarieForm({ open, onClose, existing }) {
             const newId = res.payload.id
             for (const a of assignments.slice(1)) {
                 await salarieApi.update(newId, {
-                    role:      a.role,
+                    role: a.role,
                     ...(a.module_id ? { module_id: a.module_id } : {}),
                 })
             }
@@ -302,14 +303,14 @@ export default function SalarieForm({ open, onClose, existing }) {
 
     const submitAsManager = async () => {
         const payload = {
-            cin:      form.cin,
-            prenom:   form.prenom,
-            nom:      form.nom,
-            email:    form.email,
+            cin: form.cin,
+            prenom: form.prenom,
+            nom: form.nom,
+            email: form.email,
             password: form.password,
             mon_cong: parseFloat(form.mon_cong) || 0,
-            status:   form.status,
-            role:     managerRole,
+            status: form.status,
+            role: managerRole,
             ...(managerModule ? { module_id: managerModule } : {}),
         }
         const res = await dispatch(createSalarie(payload))

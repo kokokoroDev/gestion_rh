@@ -12,11 +12,6 @@ const IconConge = () => (
         <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
     </svg>
 )
-const IconPaie = () => (
-    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-    </svg>
-)
 const IconSalaries = () => (
     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -57,18 +52,18 @@ function NavItem({ to, icon, label, end = false }) {
 }
 
 export default function Sidebar({ mobile = false, onClose }) {
-    const { salarie, role, isRH, isManager, logout } = useAuth()
+    const { salarie, role, isRH, isManager, isTeamLead, logout } = useAuth()
 
     const nav = [
-        { to: '/dashboard',    icon: <IconDashboard />,   label: 'Tableau de bord', end: true },
-        { to: '/conges',       icon: <IconConge />,        label: 'Congés'           },
-        { to: '/paie',         icon: <IconPaie />,         label: 'Bulletins de paie' },
-        { to: '/documents',    icon: <IconDocuments />,    label: 'Documents'         },
-        { to: '/notes-service',icon: <IconNotes />,        label: 'Notes de service'  },
-        { to: '/teletravail',  icon: <IconTeletravail />,  label: 'Télétravail'       },
-        ...(isRH || isManager ? [{ to: '/salaries', icon: <IconSalaries />, label: 'Salariés' }] : []),
+        { to: '/dashboard', icon: <IconDashboard />, label: 'Tableau de bord', end: true },
+        { to: '/conges', icon: <IconConge />, label: 'Conges' },
+        { to: '/documents', icon: <IconDocuments />, label: 'Documents' },
+        { to: '/notes-service', icon: <IconNotes />, label: 'Notes de service' },
+        { to: '/teletravail', icon: <IconTeletravail />, label: 'Teletravail' },
+        ...(isRH || isManager || isTeamLead ? [{ to: '/salaries', icon: <IconSalaries />, label: 'Salaries' }] : []),
     ]
 
+    console.log(isTeamLead)
     return (
         <aside className="flex flex-col h-full w-64 bg-navy-900 shadow-sidebar">
             <div className="flex items-center gap-3 px-5 py-5 border-b border-navy-700/50">
@@ -102,7 +97,7 @@ export default function Sidebar({ mobile = false, onClose }) {
                         <p className="text-sm font-medium text-white truncate">{salarie?.prenom} {salarie?.nom}</p>
                         <p className="text-xs text-slate-400 truncate">{ROLE_LABELS[role] ?? role}</p>
                     </div>
-                    <button onClick={logout} title="Déconnexion" className="text-slate-500 hover:text-rose-400 transition-colors">
+                    <button onClick={logout} title="Deconnexion" className="text-slate-500 hover:text-rose-400 transition-colors">
                         <IconLogout />
                     </button>
                 </div>

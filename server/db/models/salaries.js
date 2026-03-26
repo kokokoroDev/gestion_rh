@@ -70,7 +70,6 @@ Salarie.associate = (models) => {
     });
 
     Salarie.hasMany(models.Conge,   { foreignKey: 'sal_id', as: 'conges'   });
-    Salarie.hasMany(models.Bulpaie, { foreignKey: 'sal_id', as: 'bulletins' });
 };
 
 export default Salarie;

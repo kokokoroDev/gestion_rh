@@ -15,7 +15,7 @@ export const countWorkingDays = (start, end) => {
 
 export const overlapCondition = (date_debut, date_fin) => ({
     date_debut: { [Op.lte]: date_fin },
-    date_fin:   { [Op.gte]: date_debut },
+    date_fin: { [Op.gte]: date_debut },
 });
 
 /**
@@ -25,8 +25,8 @@ export const overlapCondition = (date_debut, date_fin) => ({
  */
 export const buildAccessWhere = (salarieInfo, extraFilters = {}) => {
     const { id: sal_id } = salarieInfo;
-    const primaryRole    = getPrimaryRole(salarieInfo);
-    const where          = {};
+    const primaryRole = getPrimaryRole(salarieInfo);
+    const where = {};
 
     if (primaryRole === 'fonctionnaire') {
         where.sal_id = sal_id;
@@ -38,15 +38,15 @@ export const buildAccessWhere = (salarieInfo, extraFilters = {}) => {
         }
     }
 
-    if (extraFilters.status && !isRH(salarieInfo))                             where.status     = extraFilters.status;
-    if (extraFilters.status && isRH(salarieInfo) && extraFilters.sal_id)       where.status     = extraFilters.status;
-    if (extraFilters.type_conge)                                                where.type_conge = extraFilters.type_conge;
-    if (extraFilters.sal_id && isManager(salarieInfo) && !isRH(salarieInfo))   where.sal_id     = extraFilters.sal_id;
+    if (extraFilters.status && !isRH(salarieInfo)) where.status = extraFilters.status;
+    if (extraFilters.status && isRH(salarieInfo) && extraFilters.sal_id) where.status = extraFilters.status;
+    if (extraFilters.type_conge) where.type_conge = extraFilters.type_conge;
+    if (extraFilters.sal_id && isManager(salarieInfo) && !isRH(salarieInfo)) where.sal_id = extraFilters.sal_id;
 
     if (extraFilters.date_from || extraFilters.date_to) {
         where.date_debut = {};
         if (extraFilters.date_from) where.date_debut[Op.gte] = extraFilters.date_from;
-        if (extraFilters.date_to)   where.date_debut[Op.lte] = extraFilters.date_to;
+        if (extraFilters.date_to) where.date_debut[Op.lte] = extraFilters.date_to;
     }
 
     return where;

@@ -5,7 +5,6 @@ import { Server } from 'socket.io';
 import mainRouter from './routes/index.js';
 import { testandsync } from './db/index.js';
 import { setupSocketHandlers } from './middleware/socket.js';
-import startPaieCron  from './cron/paie.cron.js';
 import startCongeCrons from './cron/conge.cron.js';
 
 const app        = express();
@@ -30,7 +29,6 @@ app.get('/migrate', async (req, res) => {
 });
 
 // ── Cron jobs ────────────────────────────────────────────────────────────────
-startPaieCron();    // 1st of month 06:00 — generate drafted bulletins
 startCongeCrons();  // 1st of month 05:00 — +1.5 balance; Mon–Fri 08:00 — stale-congé alerts
 
 // ── Start ────────────────────────────────────────────────────────────────────

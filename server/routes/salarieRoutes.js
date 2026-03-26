@@ -15,14 +15,14 @@ router.use(authenticate);
 
 router.get(
     '/',
-    allowRoles('rh', 'manager'),
+    allowRoles('rh', 'manager', 'team_lead'),
     validate(listSalariesSchema, 'query'),
     salarieController.getAllSalaries
 );
 
-router.get('/team', allowRoles('manager'), salarieController.getManagerTeam);
+router.get('/team', allowRoles('manager' , 'team_lead'), salarieController.getManagerTeam);
 
-router.get('/:id', allowRoles('rh', 'manager'), salarieController.getSalarieById);
+router.get('/:id', allowRoles('rh', 'manager' , 'team_lead'), salarieController.getSalarieById);
 
 router.post(
     '/',

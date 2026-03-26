@@ -37,7 +37,7 @@ export default function AuthLayout() {
               <span className="text-azure-400">simplifiée</span> pour SKATYS
             </h1>
             <p className="text-navy-300 text-base leading-relaxed max-w-sm">
-              Congés, bulletins de paie, dossiers salariés — tout en un seul endroit, accessible depuis n'importe où.
+              Congés, dossiers salariés — tout en un seul endroit, accessible depuis n'importe où.
             </p>
 
             {/* Feature pills */}

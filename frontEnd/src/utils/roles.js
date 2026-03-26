@@ -8,6 +8,7 @@ export const hasRole = (salarie, role) => roleNames(salarie).includes(role)
 
 export const isRH      = (salarie) => hasRole(salarie, 'rh')
 export const isManager = (salarie) => hasRole(salarie, 'manager')
+export const isTeamlead = (salarie) => hasRole(salarie, 'team_lead')
 
 /**
  * Strongest single role string — used for display and simple branching.
@@ -16,6 +17,7 @@ export const isManager = (salarie) => hasRole(salarie, 'manager')
 export const getPrimaryRole = (salarie) => {
     if (isRH(salarie))      return 'rh'
     if (isManager(salarie)) return 'manager'
+    if (isTeamlead(salarie)) return 'team_lead'
     return 'fonctionnaire'
 }
 

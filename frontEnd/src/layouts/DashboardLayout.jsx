@@ -5,20 +5,19 @@ import ToastContainer from '@/components/ui/ToastContainer'
 import NotificationBell from '@/components/ui/NotificationBell'
 
 const PAGE_TITLES = {
-    '/dashboard':     'Tableau de bord',
-    '/conges':        'Gestion des congés',
-    '/paie':          'Bulletins de paie',
-    '/salaries':      'Salariés',
-    '/documents':     'Demandes de documents',
+    '/dashboard': 'Tableau de bord',
+    '/conges': 'Gestion des conges',
+    '/salaries': 'Salaries',
+    '/documents': 'Demandes de documents',
     '/notes-service': 'Notes de service',
-    '/teletravail':   'Planning de télétravail',
+    '/teletravail': 'Planning de teletravail',
 }
 
 export default function DashboardLayout() {
-    const location   = useLocation()
+    const location = useLocation()
     const [mobileOpen, setMobileOpen] = useState(false)
     useEffect(() => setMobileOpen(false), [location.pathname])
-    const pageTitle = PAGE_TITLES[location.pathname] ?? 'RH Suite'
+    const pageTitle = `Skatys - ${PAGE_TITLES[location.pathname]}` ?? 'Skatys'
 
     return (
         <div className="flex h-screen overflow-hidden bg-surface-50">

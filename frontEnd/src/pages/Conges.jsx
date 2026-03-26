@@ -263,7 +263,7 @@ function Avatar({ prenom = '', nom = '' }) {
 export default function Conges({ to = 'my' }) {
   const dispatch = useDispatch()
   const toast    = useToast()
-  const { isRH, isManager, isFonctionnaire, salarie } = useAuth()
+  const { isRH, isManager, isFonctionnaire, isTeamlead , salarie } = useAuth()
 
   const teamConges = useSelector(selectConges)
   const total      = useSelector(selectCongeTotal)
@@ -294,7 +294,7 @@ export default function Conges({ to = 'my' }) {
   }, [dispatch, filters, page])
 
   const loadMine = useCallback(() => {
-    if (!isRH && !isManager) return
+    if (!isRH && (!isManager || !isTeamlead) ) return
     setMyLoading(true)
     const params = {
       limit:  LIMIT,

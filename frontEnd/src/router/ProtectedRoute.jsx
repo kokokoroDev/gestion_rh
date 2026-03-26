@@ -16,7 +16,6 @@ export const PublicOnlyRoute = () => {
 export const RoleRoute = ({ allowedRoles }) => {
     const { salarie } = useSelector(selectAuth)
     if (!salarie) return <Navigate to="/login" replace />
-    // Derive primary role from roleModules — never read a flat `role` field
     const primaryRole = getPrimaryRole(salarie)
     if (!allowedRoles.includes(primaryRole)) return <Navigate to="/dashboard" replace />
     return <Outlet />

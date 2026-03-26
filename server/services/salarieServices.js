@@ -1,18 +1,18 @@
 import { Op } from "sequelize";
 import models from "../db/models/index.js";
 import { hashPassword } from "../utils/auth.js";
-import { isRH, isManager, getManagerModuleIds } from "../utils/role.js";
+import { isRH, isManager, getManagerModuleIds, isTeamlead } from "../utils/role.js";
 
-const { Salarie, SalarieRoleModule, Role, Module, Conge, Bulpaie } = models;
+const { Salarie, SalarieRoleModule, Role, Module, Conge } = models;
 
 // ─── Shared include ───────────────────────────────────────────────────────────
 
 const roleModulesInclude = {
-    model:   SalarieRoleModule,
-    as:      'roleModules',
+    model: SalarieRoleModule,
+    as: 'roleModules',
     include: [
-        { model: Role,   as: 'roleRef', attributes: ['name']          },
-        { model: Module, as: 'module',  attributes: ['id', 'libelle'] },
+        { model: Role, as: 'roleRef', attributes: ['name'] },
+        { model: Module, as: 'module', attributes: ['id', 'libelle'] },
     ],
 };
 
@@ -52,23 +52,28 @@ export const getAllSalaries = async (filters = {}, limitations = {}) => {
 
         const where = {};
         where.status = status || 'active';
-        where.id     = { [Op.ne]: searcherId };
+        where.id = { [Op.ne]: searcherId };
 
         if (search) {
             where[Op.or] = [
                 { prenom: { [Op.like]: `%${search}%` } },
-                { nom:    { [Op.like]: `%${search}%` } },
-                { email:  { [Op.like]: `%${search}%` } },
-                { cin:    { [Op.like]: `%${search}%` } },
+                { nom: { [Op.like]: `%${search}%` } },
+                { email: { [Op.like]: `%${search}%` } },
+                { cin: { [Op.like]: `%${search}%` } },
             ];
         }
 
         const rmInclude = { ...roleModulesInclude };
 
-        if (isManager({ roles: callerRoles }) && !isRH({ roles: callerRoles })) {
-            const managerModuleIds = getManagerModuleIds({ roles: callerRoles });
-            if (!managerModuleIds.length) return { total: 0, data: [] };
-            rmInclude.where    = { module_id: { [Op.in]: managerModuleIds } };
+        if ((isManager({ roles: callerRoles }) || isTeamlead({ roles: callerRoles })) && !isRH({ roles: callerRoles })) {
+            let moduleIds = [];
+            if (isManager) {
+                moduleIds = getManagerModuleIds({ roles: callerRoles })
+            } else if (isTeamlead) {
+                moduleIds = getManagerModuleIds({ roles: callerRoles })
+            }
+            if (!moduleIds.length) return { total: 0, data: [] };
+            rmInclude.where = { module_id: { [Op.in]: moduleIds } };
             rmInclude.required = true;
         } else {
             if (filters.module_id || filterRole) {
@@ -82,18 +87,20 @@ export const getAllSalaries = async (filters = {}, limitations = {}) => {
         }
 
         const excludeAttrs = ['password', 'deleted_at'];
-        if (isManager({ roles: callerRoles }) && !isRH({ roles: callerRoles })) {
+        if ((isManager({ roles: callerRoles }) || isTeamlead({ roles: callerRoles })) && !isRH({ roles: callerRoles })) {
             excludeAttrs.push('email', 'cin');
+            const roleRow = await Role.findOne({ where: { name: 'rh' } });
+            rmInclude.where.role_id = { [Op.ne]: roleRow.id };
         }
 
         const salaries = await Salarie.findAndCountAll({
             where,
             attributes: { exclude: excludeAttrs },
-            include:    [rmInclude],
-            order:      [['nom', 'ASC']],
-            limit:      parseInt(limit),
-            offset:     parseInt(offset),
-            distinct:   true,
+            include: [rmInclude],
+            order: [['nom', 'ASC']],
+            limit: parseInt(limit),
+            offset: parseInt(offset),
+            distinct: true,
         });
 
         return { total: salaries.count, data: salaries.rows };
@@ -110,19 +117,19 @@ export const getSalarieById = async (id, limitations = {}) => {
     if (isManager({ roles: callerRoles }) && !isRH({ roles: callerRoles })) {
         const managerModuleIds = getManagerModuleIds({ roles: callerRoles });
         if (!managerModuleIds.length) throw new Error('Salarié non trouvé ou accès refusé');
-        rmInclude.where    = { module_id: { [Op.in]: managerModuleIds } };
+        rmInclude.where = { module_id: { [Op.in]: managerModuleIds } };
         rmInclude.required = true;
     }
 
     const excludeAttrs = ['password', 'deleted_at'];
-    if (isManager({ roles: callerRoles }) && !isRH({ roles: callerRoles })) {
+    if ((isManager({ roles: callerRoles }) || isTeamlead({ roles: callerRoles })) && !isRH({ roles: callerRoles })) {
         excludeAttrs.push('cin');
     }
 
     const salarie = await Salarie.findOne({
-        where:      { id },
+        where: { id },
         attributes: { exclude: excludeAttrs },
-        include:    [rmInclude, { model: Conge, as: 'conges' }, { model: Bulpaie, as: 'bulletins' }],
+        include: [rmInclude, { model: Conge, as: 'conges' }],
     });
 
     if (!salarie) throw new Error('Salarié non trouvé ou accès refusé');
@@ -131,7 +138,7 @@ export const getSalarieById = async (id, limitations = {}) => {
 
 export const getManagerTeam = async (managerId) => {
     const managerRoles = await SalarieRoleModule.findAll({
-        where:   { sal_id: managerId },
+        where: { sal_id: managerId },
         include: [{ model: Role, as: 'roleRef', where: { name: 'manager' }, attributes: ['name'] }],
     });
 
@@ -140,13 +147,14 @@ export const getManagerTeam = async (managerId) => {
     }
 
     const moduleIds = managerRoles.map(r => r.module_id).filter(Boolean);
+    const roleId = await getRoleId('rh')
 
     return await Salarie.findAll({
         where: { id: { [Op.ne]: managerId }, status: 'active' },
         attributes: { exclude: ['password', 'deleted_at'] },
         include: [{
             ...roleModulesInclude,
-            where:    { module_id: { [Op.in]: moduleIds } },
+            where: { module_id: { [Op.in]: moduleIds } , role_id : {[Op.ne] : roleId} },
             required: true,
         }],
         order: [['nom', 'ASC']],
@@ -156,8 +164,8 @@ export const getManagerTeam = async (managerId) => {
 export const createSalarie = async (data, salarieInfo) => {
     const { email, cin, module_id, role: requestedRole = 'fonctionnaire' } = data;
 
-    const callerRoles   = salarieInfo.roles ?? [];
-    const callerIsRH    = isRH({ roles: callerRoles });
+    const callerRoles = salarieInfo.roles ?? [];
+    const callerIsRH = isRH({ roles: callerRoles });
     const callerModules = getManagerModuleIds({ roles: callerRoles });
 
     let finalModuleId = module_id ?? null;
@@ -174,7 +182,7 @@ export const createSalarie = async (data, salarieInfo) => {
     const existing = await Salarie.findOne({ where: { [Op.or]: [{ email }, { cin }] } });
     if (existing) {
         if (existing.email === email) throw new Error('Cet email est déjà utilisé');
-        if (existing.cin   === cin)   throw new Error('Ce CIN est déjà utilisé');
+        if (existing.cin === cin) throw new Error('Ce CIN est déjà utilisé');
     }
 
     if (finalModuleId) {
@@ -186,18 +194,18 @@ export const createSalarie = async (data, salarieInfo) => {
     if (!validRoles.includes(requestedRole)) throw new Error(`Rôle "${requestedRole}" non autorisé`);
 
     const finalRoleId = await getRoleId(requestedRole);
-    const password    = await hashPassword(data.password);
+    const password = await hashPassword(data.password);
 
     const salarie = await Salarie.create({
-        cin:          data.cin,
-        prenom:       data.prenom,
-        nom:          data.nom,
-        email:        data.email,
-        date_debut:   data.date_debut,
-        date_fin:     data.date_fin,
-        mon_cong:     data.mon_cong,
+        cin: data.cin,
+        prenom: data.prenom,
+        nom: data.nom,
+        email: data.email,
+        date_debut: data.date_debut,
+        date_fin: data.date_fin,
+        mon_cong: data.mon_cong,
         salaire_base: data.salaire_base,
-        status:       data.status ?? 'active',
+        status: data.status ?? 'active',
         password,
     });
 
@@ -223,8 +231,8 @@ export const updateSalarie = async (id, data) => {
     }
 
     const payload = { ...rest };
-    if (email)    payload.email    = email;
-    if (cin)      payload.cin      = cin;
+    if (email) payload.email = email;
+    if (cin) payload.cin = cin;
     if (password) payload.password = await hashPassword(password);
 
     await salarie.update(payload);
@@ -242,7 +250,7 @@ export const updateSalarie = async (id, data) => {
 
         } else if (newRole !== undefined) {
             // Case B: update role on all existing assignments
-            const roleId     = await getRoleId(newRole);
+            const roleId = await getRoleId(newRole);
             const assignments = await SalarieRoleModule.findAll({ where: { sal_id: id } });
             if (assignments.length === 0) {
                 await upsertRoleForModule(id, roleId, null);

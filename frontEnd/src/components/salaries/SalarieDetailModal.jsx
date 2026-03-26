@@ -10,7 +10,6 @@ import {
   formatDate, formatMAD, formatMonthYear, getInitials,
   ROLE_LABELS, ROLE_COLORS,
   CONGE_STATUS_LABELS, CONGE_STATUS_COLORS, CONGE_TYPE_LABELS,
-  PAIE_STATUS_LABELS, PAIE_STATUS_COLORS,
 } from '@/utils/formatters'
 
 function Section({ title, children }) {
@@ -131,29 +130,6 @@ export default function SalarieDetailModal({ salarieId, open, onClose }) {
                     </span>
                     <Badge className={CONGE_STATUS_COLORS[c.status]}>
                       {CONGE_STATUS_LABELS[c.status]}
-                    </Badge>
-                  </div>
-                ))}
-              </div>
-            )}
-          </Section>
-
-          {/* Bulletins history */}
-          <Section title={`Bulletins de paie (${salarie.bulletins?.length ?? 0})`}>
-            {!salarie.bulletins?.length ? (
-              <p className="text-sm text-surface-400">Aucun bulletin</p>
-            ) : (
-              <div className="space-y-2 max-h-40 overflow-y-auto">
-                {salarie.bulletins.slice().reverse().map((b) => (
-                  <div key={b.id} className="flex items-center gap-3 text-sm py-1.5 border-b border-surface-50 last:border-0">
-                    <span className="font-mono text-xs bg-surface-100 px-2 py-0.5 rounded">
-                      {formatMonthYear(b.month, b.year)}
-                    </span>
-                    <span className="flex-1 text-surface-600 font-mono text-xs">
-                      {formatMAD(b.salaire_net)}
-                    </span>
-                    <Badge className={PAIE_STATUS_COLORS[b.status]}>
-                      {PAIE_STATUS_LABELS[b.status]}
                     </Badge>
                   </div>
                 ))}

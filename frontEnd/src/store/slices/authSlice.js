@@ -5,6 +5,7 @@ import {
     getPrimaryRole,
     isRH as _isRH,
     isManager as _isManager,
+    isTeamlead as _isTeamLead,
     getFirstModuleId,
 } from '../../utils/roles'
 
@@ -164,6 +165,7 @@ export const selectSalarie = (s) => s.auth.salarie
 export const selectRole      = (s) => getPrimaryRole(s.auth.salarie)
 export const selectIsRH      = (s) => _isRH(s.auth.salarie)
 export const selectIsManager = (s) => _isManager(s.auth.salarie)
+export const selectIsTeamLead = (s) => _isTeamLead(s.auth.salarie)  
 export const selectModuleId  = (s) => getFirstModuleId(s.auth.salarie)
 
 export default authSlice.reducer

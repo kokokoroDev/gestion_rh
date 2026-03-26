@@ -2,24 +2,20 @@ import { useEffect, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { useAuth } from '@/hooks/useAuth'
 import { fetchConges } from '@/store/slices/congeSlice'
-import { fetchBulpaies } from '@/store/slices/paieSlice'
 import { fetchSalaries } from '@/store/slices/salarieSlice'
 import { selectConges, selectCongeTotal } from '@/store/slices/congeSlice'
-import { selectBulpaies, selectBulpaieTotal } from '@/store/slices/paieSlice'
-import { selectSalaries, selectSalarieTotal } from '@/store/slices/salarieSlice'
+import { selectSalarieTotal } from '@/store/slices/salarieSlice'
 import { congeApi } from '@/api/conge.api'
 import { documentRequestApi } from '@/api/documentRequest.api'
 import StatCard from '@/components/dashboard/StatCard'
 import Badge from '@/components/ui/Badge'
 import Spinner from '@/components/ui/Spinner'
 import {
-  formatDate, formatDateTime, formatMonthYear,
+  formatDate, formatDateTime, getInitials,
   CONGE_STATUS_LABELS, CONGE_STATUS_COLORS,
-  PAIE_STATUS_LABELS, PAIE_STATUS_COLORS,
   CONGE_TYPE_LABELS,
   DOC_DEMANDE_LABELS, DOC_DEMANDE_ICONS,
   DOC_STATUS_LABELS, DOC_STATUS_COLORS,
-  getInitials
 } from '@/utils/formatters'
 
 // ─── Stat icons ────────────────────────────────────────────────────────────────
@@ -35,17 +31,6 @@ const IconCalendar = () => (
       d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
   </svg>
 )
-const IconDoc = () => (
-  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-    <path strokeLinecap="round" strokeLinejoin="round"
-      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-  </svg>
-)
-const IconCheck = () => (
-  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-  </svg>
-)
 const IconDocRequest = () => (
   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
     <path strokeLinecap="round" strokeLinejoin="round"
@@ -53,7 +38,7 @@ const IconDocRequest = () => (
   </svg>
 )
 
-// ─── Status progress steps ────────────────────────────────────────────────────
+// ─── Status progress steps ─────────────────────────────────────────────────────
 const STATUS_STEPS = ['soumis', 'reached', 'accepte']
 
 function CongeProgressBar({ status }) {
@@ -61,25 +46,22 @@ function CongeProgressBar({ status }) {
     return (
       <div className="flex items-center gap-1.5 mt-2">
         <div className="flex-1 h-1 rounded-full bg-rose-200" />
-        <span className="text-xs font-medium text-rose-600">Refusé</span>
+        <span className="text-xs font-medium text-rose-600">Refuse</span>
       </div>
     )
   }
-
   const currentIdx = STATUS_STEPS.indexOf(status)
-
   return (
     <div className="mt-2.5">
       <div className="flex items-center gap-0">
         {STATUS_STEPS.map((step, i) => {
           const done    = i <= currentIdx
           const current = i === currentIdx
-          const labels  = { soumis: 'Soumis', reached: 'Chez RH', accepte: 'Accepté' }
+          const labels  = { soumis: 'Soumis', reached: 'Chez RH', accepte: 'Accepte' }
           return (
             <div key={step} className="flex items-center flex-1">
               <div className="flex flex-col items-center flex-shrink-0">
-                <div className={`
-                  w-4 h-4 rounded-full border-2 flex items-center justify-center transition-all
+                <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center transition-all
                   ${done
                     ? current && step !== 'accepte'
                       ? 'border-azure-500 bg-azure-500 ring-2 ring-azure-200'
@@ -87,8 +69,7 @@ function CongeProgressBar({ status }) {
                         ? 'border-emerald-500 bg-emerald-500'
                         : 'border-azure-400 bg-azure-400'
                     : 'border-surface-300 bg-white'
-                  }
-                `}>
+                  }`}>
                   {done && (
                     <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
@@ -96,17 +77,13 @@ function CongeProgressBar({ status }) {
                   )}
                 </div>
                 <span className={`text-[10px] mt-0.5 font-medium whitespace-nowrap
-                  ${done
-                    ? step === 'accepte' ? 'text-emerald-600' : 'text-azure-600'
-                    : 'text-surface-400'
-                  }`}>
+                  ${done ? step === 'accepte' ? 'text-emerald-600' : 'text-azure-600' : 'text-surface-400'}`}>
                   {labels[step]}
                 </span>
               </div>
               {i < STATUS_STEPS.length - 1 && (
                 <div className={`flex-1 h-0.5 mb-3.5 mx-0.5 rounded-full transition-all
-                  ${i < currentIdx ? 'bg-azure-400' : 'bg-surface-200'}`}
-                />
+                  ${i < currentIdx ? 'bg-azure-400' : 'bg-surface-200'}`} />
               )}
             </div>
           )
@@ -116,7 +93,6 @@ function CongeProgressBar({ status }) {
   )
 }
 
-// ─── Avatar chip ───────────────────────────────────────────────────────────────
 function Avatar({ prenom = '', nom = '' }) {
   return (
     <div className="w-8 h-8 rounded-full bg-azure-100 flex items-center justify-center flex-shrink-0">
@@ -125,7 +101,6 @@ function Avatar({ prenom = '', nom = '' }) {
   )
 }
 
-// ─── My leave request row ──────────────────────────────────────────────────────
 function MyCongeRow({ conge }) {
   return (
     <div className="py-3 border-b border-surface-50 last:border-0">
@@ -153,7 +128,6 @@ function MyCongeRow({ conge }) {
   )
 }
 
-// ─── Team leave request row ────────────────────────────────────────────────────
 function TeamCongeRow({ conge }) {
   return (
     <div className="flex items-center gap-3 py-2.5 border-b border-surface-50 last:border-0">
@@ -174,59 +148,24 @@ function TeamCongeRow({ conge }) {
   )
 }
 
-// ─── My doc request row ────────────────────────────────────────────────────────
-function MyDocRequestRow({ request }) {
-  const isPending = request.status === 'en_attente'
-  const isTraite  = request.status === 'traite'
-  const isRefuse  = request.status === 'refuse'
-
-  return (
-    <div className="flex items-center gap-3 py-2.5 border-b border-surface-50 last:border-0">
-      {/* Icon */}
-      <div className={`
-        w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 text-base
-        ${isPending ? 'bg-amber-50 border border-amber-200'  :
-          isTraite  ? 'bg-emerald-50 border border-emerald-200' :
-                      'bg-rose-50 border border-rose-200'}
-      `}>
-        {DOC_DEMANDE_ICONS[request.demande] ?? '📄'}
-      </div>
-
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-surface-800 truncate">
-          {DOC_DEMANDE_LABELS[request.demande] ?? request.demande}
-        </p>
-        <p className="text-xs text-surface-400">{formatDateTime(request.createdAt ?? request.created_at)}</p>
-      </div>
-
-      <Badge className={DOC_STATUS_COLORS[request.status]}>
-        {DOC_STATUS_LABELS[request.status]}
-      </Badge>
-    </div>
-  )
-}
-
-// ─── RH doc request row ────────────────────────────────────────────────────────
-function RHDocRequestRow({ request }) {
+// ─── Doc request row ─────────────────────────────────────────────────────────
+function DocRequestRow({ request }) {
   const nom = request.salarie
     ? `${request.salarie.prenom} ${request.salarie.nom}`
-    : '—'
+    : 'Moi'
 
   return (
     <div className="flex items-center gap-3 py-2.5 border-b border-surface-50 last:border-0">
-      <Avatar prenom={request.salarie?.prenom} nom={request.salarie?.nom} />
-
+      <div className={`w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 text-base
+        ${request.status === 'en_attente' ? 'bg-amber-50 border border-amber-200'
+          : request.status === 'traite' ? 'bg-emerald-50 border border-emerald-200'
+          : 'bg-rose-50 border border-rose-200'}`}>
+        {DOC_DEMANDE_ICONS[request.demande] ?? '📄'}
+      </div>
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-1.5 min-w-0">
-          <p className="text-sm font-medium text-surface-800 truncate">{nom}</p>
-          <span className="text-surface-300 flex-shrink-0">·</span>
-          <p className="text-xs text-surface-500 truncate flex-shrink-0">
-            {DOC_DEMANDE_ICONS[request.demande]} {DOC_DEMANDE_LABELS[request.demande] ?? request.demande}
-          </p>
-        </div>
+        <p className="text-sm font-medium text-surface-800 truncate">{nom}</p>
         <p className="text-xs text-surface-400">{formatDateTime(request.createdAt ?? request.created_at)}</p>
       </div>
-
       <Badge className={DOC_STATUS_COLORS[request.status]}>
         {DOC_STATUS_LABELS[request.status]}
       </Badge>
@@ -234,7 +173,53 @@ function RHDocRequestRow({ request }) {
   )
 }
 
-// ─── Section card wrapper ──────────────────────────────────────────────────────
+// ─── Doc type breakdown card (when clicking the stat) ─────────────────────────
+function DocTypeBreakdownCard({ counts, onClose }) {
+  const DOC_TYPE_COLORS = {
+    att_travail:   { bg: 'bg-azure-50',   border: 'border-azure-200',   text: 'text-azure-700',   dot: 'bg-azure-500'   },
+    att_salaire:   { bg: 'bg-amber-50',   border: 'border-amber-200',   text: 'text-amber-700',   dot: 'bg-amber-500'   },
+    bulletin_paie: { bg: 'bg-emerald-50', border: 'border-emerald-200', text: 'text-emerald-700', dot: 'bg-emerald-500' },
+  }
+
+  return (
+    <div className="card border-surface-200 animate-slide-up">
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h3 className="font-semibold text-surface-800 text-sm">Demandes par type de document</h3>
+          <p className="text-xs text-surface-400 mt-0.5">Toutes les demandes en attente</p>
+        </div>
+        <button onClick={onClose} className="p-1.5 rounded-lg text-surface-400 hover:text-surface-600 hover:bg-surface-100 transition-colors">
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        {Object.entries(DOC_DEMANDE_LABELS).map(([key, label]) => {
+          const c = DOC_TYPE_COLORS[key]
+          const count = counts[key] ?? 0
+          return (
+            <a key={key} href="/documents" className={`group flex items-center gap-3 p-4 rounded-xl border ${c.bg} ${c.border} hover:shadow-card transition-all cursor-pointer`}>
+              <span className="text-2xl">{DOC_DEMANDE_ICONS[key]}</span>
+              <div className="flex-1 min-w-0">
+                <p className={`text-xs font-semibold ${c.text} truncate`}>{label}</p>
+                <div className="flex items-baseline gap-1 mt-1">
+                  <span className={`text-2xl font-bold ${c.text}`}>{count}</span>
+                  <span className={`text-xs ${c.text} opacity-70`}>en attente</span>
+                </div>
+              </div>
+              <svg className={`w-4 h-4 ${c.text} opacity-40 group-hover:opacity-100 transition-opacity flex-shrink-0`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+              </svg>
+            </a>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+// ─── Section card wrapper ─────────────────────────────────────────────────────
 function SectionCard({ title, subtitle, linkTo, linkLabel = 'Voir tout →', loading, empty, emptyText, children }) {
   return (
     <div className="card">
@@ -244,25 +229,51 @@ function SectionCard({ title, subtitle, linkTo, linkLabel = 'Voir tout →', loa
           {subtitle && <p className="text-xs text-surface-400 mt-0.5">{subtitle}</p>}
         </div>
         {linkTo && (
-          <a href={linkTo} className="text-xs text-azure-600 hover:underline font-medium">
-            {linkLabel}
-          </a>
+          <a href={linkTo} className="text-xs text-azure-600 hover:underline font-medium">{linkLabel}</a>
         )}
       </div>
-
       {loading ? (
-        <div className="flex justify-center py-6">
-          <Spinner size="md" className="text-azure-500" />
-        </div>
+        <div className="flex justify-center py-6"><Spinner size="md" className="text-azure-500" /></div>
       ) : empty ? (
         <div className="text-center py-8 text-surface-400">
           <svg className="w-8 h-8 mx-auto mb-2 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
           </svg>
-          <p className="text-sm">{emptyText ?? 'Aucune donnée'}</p>
+          <p className="text-sm">{emptyText ?? 'Aucune donnee'}</p>
         </div>
       ) : children}
     </div>
+  )
+}
+
+// ─── Clickable stat card ───────────────────────────────────────────────────────
+function ClickableStatCard({ label, value, sub, icon, color = 'azure', onClick, active }) {
+  const colors = {
+    azure:   'bg-azure-50   text-azure-600   border-azure-100',
+    emerald: 'bg-emerald-50 text-emerald-600 border-emerald-100',
+    amber:   'bg-amber-50   text-amber-600   border-amber-100',
+    rose:    'bg-rose-50    text-rose-600    border-rose-100',
+  }
+
+  return (
+    <button
+      onClick={onClick}
+      className={`card flex items-start gap-4 animate-slide-up w-full text-left transition-all
+        ${active ? 'ring-2 ring-azure-400 shadow-card-lg' : 'hover:shadow-card-lg'}`}
+    >
+      <div className={`p-3 rounded-xl border ${colors[color]}`}>{icon}</div>
+      <div className="flex-1 min-w-0">
+        <p className="text-xs font-medium text-surface-500 uppercase tracking-wide">{label}</p>
+        <p className="text-2xl font-semibold text-surface-900 mt-0.5 leading-none">{value}</p>
+        {sub && <p className="text-xs text-surface-400 mt-1 truncate">{sub}</p>}
+      </div>
+      {onClick && (
+        <svg className={`w-4 h-4 flex-shrink-0 mt-1 transition-transform ${active ? 'rotate-90 text-azure-500' : 'text-surface-300'}`}
+          fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+        </svg>
+      )}
+    </button>
   )
 }
 
@@ -271,26 +282,20 @@ export default function Dashboard() {
   const dispatch = useDispatch()
   const { salarie, isRH, isManager, isFonctionnaire } = useAuth()
 
-  const conges   = useSelector(selectConges)
-  const paies    = useSelector(selectBulpaies)
-
+  const conges       = useSelector(selectConges)
   const congeTotal   = useSelector(selectCongeTotal)
-  const paieTotal    = useSelector(selectBulpaieTotal)
   const salarieTotal = useSelector(selectSalarieTotal)
 
-  // Personal conges for manager/RH
-  const [myConges,          setMyConges]          = useState([])
-  const [myCongesLoading,   setMyCongesLoading]   = useState(false)
+  const [myConges,        setMyConges]        = useState([])
+  const [myCongesLoading, setMyCongesLoading] = useState(false)
 
-  // Document requests
-  const [myDocRequests,     setMyDocRequests]     = useState([])
-  const [myDocLoading,      setMyDocLoading]      = useState(false)
-  const [rhDocRequests,     setRhDocRequests]     = useState([])
-  const [rhDocLoading,      setRhDocLoading]      = useState(false)
-  const [pendingDocCount,   setPendingDocCount]   = useState(0)
+  // All doc requests fetched once, then split by type
+  const [allDocRequests,  setAllDocRequests]  = useState([])
+  const [docLoading,      setDocLoading]      = useState(false)
 
-  const currentMonth = new Date().getMonth() + 1
-  const currentYear  = new Date().getFullYear()
+  // Per-type pending counts (for breakdown card)
+  const [pendingByType,   setPendingByType]   = useState({})
+  const [showDocBreakdown, setShowDocBreakdown] = useState(false)
 
   useEffect(() => {
     if (isRH || isManager) {
@@ -298,40 +303,47 @@ export default function Dashboard() {
       dispatch(fetchSalaries({ limit: 5 }))
 
       setMyCongesLoading(true)
-      congeApi.getAll({ limit: 5, sal_id: salarie?.id })
-        .then(r => setMyConges(r.data?.data ?? []))
+      congeApi.getAll({ limit: 5 })
+        .then(r => {
+          const all = r.data?.data ?? []
+          setMyConges(all.filter(c => c.sal_id === salarie?.id))
+        })
         .catch(() => setMyConges([]))
         .finally(() => setMyCongesLoading(false))
     } else {
       dispatch(fetchConges({ limit: 5 }))
     }
 
-    dispatch(fetchBulpaies({ limit: 5, month: currentMonth, year: currentYear }))
-
-    // ── Document requests ──────────────────────────────────────────────────
-    if (isRH) {
-      // RH sees recent incoming requests (all statuses, most recent first)
-      setRhDocLoading(true)
-      documentRequestApi.getAll({ limit: 6, offset: 0 })
-        .then(r => {
-          const all = r.data?.data ?? []
-          setRhDocRequests(all)
-          setPendingDocCount(all.filter(d => d.status === 'en_attente').length)
-        })
-        .catch(() => setRhDocRequests([]))
-        .finally(() => setRhDocLoading(false))
-    } else {
-      // Employee sees their own recent requests
-      setMyDocLoading(true)
-      documentRequestApi.getAll({ limit: 5, offset: 0 })
-        .then(r => setMyDocRequests(r.data?.data ?? []))
-        .catch(() => setMyDocRequests([]))
-        .finally(() => setMyDocLoading(false))
-    }
+    // Fetch recent doc requests — one call, split client-side
+    setDocLoading(true)
+    const params = isRH ? { limit: 30, offset: 0 } : { limit: 15, offset: 0 }
+    documentRequestApi.getAll(params)
+      .then(r => {
+        const docs = r.data?.data ?? []
+        setAllDocRequests(docs)
+        // Pending counts per type (RH only)
+        if (isRH) {
+          const pending = docs.filter(d => d.status === 'en_attente')
+          setPendingByType({
+            att_travail:   pending.filter(d => d.demande === 'att_travail').length,
+            att_salaire:   pending.filter(d => d.demande === 'att_salaire').length,
+            bulletin_paie: pending.filter(d => d.demande === 'bulletin_paie').length,
+          })
+        }
+      })
+      .catch(() => setAllDocRequests([]))
+      .finally(() => setDocLoading(false))
   }, [])
 
-  const pendingTeamConges = conges.filter(c => ['soumis', 'reached'].includes(c.status))
-  const draftedBulpaies   = paies.filter(p => p.status === 'drafted')
+  // Split doc requests by type for the section cards
+  const recentByType = {
+    att_travail:   allDocRequests.filter(d => d.demande === 'att_travail').slice(0, 4),
+    att_salaire:   allDocRequests.filter(d => d.demande === 'att_salaire').slice(0, 4),
+    bulletin_paie: allDocRequests.filter(d => d.demande === 'bulletin_paie').slice(0, 4),
+  }
+
+  const pendingTeamConges   = conges.filter(c => ['soumis', 'reached'].includes(c.status))
+  const totalPendingDocs    = Object.values(pendingByType).reduce((a, b) => a + b, 0)
 
   return (
     <div className="space-y-6">
@@ -350,79 +362,72 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         {(isRH || isManager) && (
           <StatCard
-            label="Salariés actifs"
+            label="Salaries actifs"
             value={salarieTotal}
-            sub="dans votre périmètre"
+            sub="dans votre perimetre"
             icon={<IconUsers />}
             color="azure"
           />
         )}
 
         <StatCard
-          label={isRH || isManager ? 'Demandes en attente' : 'Mes congés'}
+          label={isRH || isManager ? 'Conges en attente' : 'Mes conges'}
           value={isRH || isManager ? pendingTeamConges.length : congeTotal}
-          sub={isRH || isManager ? 'nécessitent une action' : 'demandes au total'}
+          sub={isRH || isManager ? 'necessitent une action' : 'demandes au total'}
           icon={<IconCalendar />}
           color="amber"
         />
 
-        <StatCard
-          label="Bulletins ce mois"
-          value={paieTotal}
-          sub={formatMonthYear(currentMonth, currentYear)}
-          icon={<IconDoc />}
-          color="emerald"
-        />
-
-        {isRH && (
-          <>
-            <StatCard
-              label="Brouillons à valider"
-              value={draftedBulpaies.length}
-              sub="bulletins non validés"
-              icon={<IconCheck />}
-              color="rose"
-            />
-            <StatCard
-              label="Docs en attente"
-              value={pendingDocCount}
-              sub="demandes à traiter"
-              icon={<IconDocRequest />}
-              color="azure"
-            />
-          </>
+        {isFonctionnaire && (
+          <StatCard
+            label="Solde de conges"
+            value={`${salarie?.mon_cong ?? 0} j`}
+            sub="jours disponibles"
+            icon={<IconCalendar />}
+            color="emerald"
+          />
         )}
 
-        {isFonctionnaire && (
-          <>
-            <StatCard
-              label="Solde de congés"
-              value={`${salarie?.mon_cong ?? 0} j`}
-              sub="jours disponibles"
-              icon={<IconCalendar />}
-              color="emerald"
-            />
-            <StatCard
-              label="Mes demandes de docs"
-              value={myDocRequests.length}
-              sub="demandes soumises"
-              icon={<IconDocRequest />}
-              color="azure"
-            />
-          </>
+        {/* Clickable docs card */}
+        {isRH ? (
+          <ClickableStatCard
+            label="Docs en attente"
+            value={totalPendingDocs}
+            sub="cliquer pour le detail par type"
+            icon={<IconDocRequest />}
+            color={showDocBreakdown ? 'azure' : 'rose'}
+            onClick={() => setShowDocBreakdown(v => !v)}
+            active={showDocBreakdown}
+          />
+        ) : (
+          <StatCard
+            label="Mes demandes de docs"
+            value={allDocRequests.length}
+            sub="demandes soumises"
+            icon={<IconDocRequest />}
+            color="azure"
+          />
         )}
       </div>
+
+      {/* ── Doc breakdown panel (RH, toggled) ── */}
+      {isRH && showDocBreakdown && (
+        <DocTypeBreakdownCard
+          counts={pendingByType}
+          onClose={() => setShowDocBreakdown(false)}
+        />
+      )}
 
       {/* ── Content grid ── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-        {/* ════════════════ LEFT COLUMN ════════════════ */}
+        {/* ════ LEFT COLUMN ════ */}
         <div className="space-y-5">
 
           {/* Pending team conges — manager/RH */}
           {(isRH || isManager) && (
             <SectionCard
-              title="Demandes de congé en attente"
+              title="Demandes de conge en attente"
               subtitle={isRH ? 'Transmises au RH' : 'En attente de traitement'}
               linkTo="/conges"
               loading={false}
@@ -435,10 +440,10 @@ export default function Dashboard() {
             </SectionCard>
           )}
 
-          {/* My personal conges — manager/RH */}
+          {/* My personal conges */}
           {(isRH || isManager) && (
             <SectionCard
-              title="Mes demandes de congé"
+              title="Mes demandes de conge"
               subtitle="Suivi de vos propres demandes"
               linkTo="/conges"
               loading={myCongesLoading}
@@ -451,10 +456,9 @@ export default function Dashboard() {
             </SectionCard>
           )}
 
-          {/* Fonctionnaire — own conges */}
           {isFonctionnaire && (
             <SectionCard
-              title="Mes demandes de congé"
+              title="Mes demandes de conge"
               subtitle="Suivi de vos demandes en cours"
               linkTo="/conges"
               loading={false}
@@ -467,141 +471,73 @@ export default function Dashboard() {
             </SectionCard>
           )}
 
-          {/* ── Fonctionnaire / Manager: own doc requests ── */}
-          {!isRH && (
-            <SectionCard
-              title="Mes demandes de documents"
-              subtitle="Statut de vos dernières demandes"
-              linkTo="/documents"
-              linkLabel="Voir toutes →"
-              loading={myDocLoading}
-              empty={!myDocLoading && myDocRequests.length === 0}
-              emptyText="Aucune demande de document"
-            >
-              {myDocRequests.length > 0 && (
-                <div className="mb-3">
-                  {/* Status summary bar */}
-                  {(() => {
-                    const pending = myDocRequests.filter(r => r.status === 'en_attente').length
-                    const done    = myDocRequests.filter(r => r.status === 'traite').length
-                    const refused = myDocRequests.filter(r => r.status === 'refuse').length
-                    return (
-                      <div className="flex items-center gap-2 flex-wrap">
-                        {pending > 0 && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-100 text-amber-700">
-                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 inline-block" />
-                            {pending} en attente
-                          </span>
-                        )}
-                        {done > 0 && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-100 text-emerald-700">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />
-                            {done} traité{done > 1 ? 's' : ''}
-                          </span>
-                        )}
-                        {refused > 0 && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-100 text-rose-700">
-                            <span className="w-1.5 h-1.5 rounded-full bg-rose-500 inline-block" />
-                            {refused} refusé{refused > 1 ? 's' : ''}
-                          </span>
-                        )}
-                      </div>
-                    )
-                  })()}
-                </div>
-              )}
-              {myDocRequests.map(r => (
-                <MyDocRequestRow key={r.id} request={r} />
-              ))}
-
-              {/* CTA if no requests yet */}
-              {!myDocLoading && myDocRequests.length === 0 && (
-                <div className="text-center pt-2">
-                  <a
-                    href="/documents"
-                    className="inline-flex items-center gap-1.5 text-xs text-azure-600 hover:underline font-medium"
-                  >
-                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                    </svg>
-                    Faire une demande
-                  </a>
-                </div>
-              )}
-            </SectionCard>
-          )}
+          {/* Recent attestations de travail */}
+          <SectionCard
+            title="Attestations de travail"
+            subtitle="Demandes recentes"
+            linkTo="/documents"
+            loading={docLoading}
+            empty={!docLoading && recentByType.att_travail.length === 0}
+            emptyText="Aucune demande"
+          >
+            {recentByType.att_travail.map(r => (
+              <DocRequestRow key={r.id} request={r} />
+            ))}
+          </SectionCard>
         </div>
 
-        {/* ════════════════ RIGHT COLUMN ════════════════ */}
+        {/* ════ RIGHT COLUMN ════ */}
         <div className="space-y-5">
 
-          {/* Recent bulletins */}
+          {/* Recent attestations de salaire */}
           <SectionCard
-            title={`Bulletins — ${formatMonthYear(currentMonth, currentYear)}`}
-            linkTo="/paie"
-            loading={false}
-            empty={paies.length === 0}
-            emptyText="Aucun bulletin ce mois"
+            title="Attestations de salaire"
+            subtitle="Demandes recentes"
+            linkTo="/documents"
+            loading={docLoading}
+            empty={!docLoading && recentByType.att_salaire.length === 0}
+            emptyText="Aucune demande"
           >
-            {paies.slice(0, 6).map(p => (
-              <div key={p.id} className="flex items-center gap-3 py-2 border-b border-surface-50 last:border-0">
-                <Avatar
-                  prenom={p.salarie?.prenom ?? salarie?.prenom}
-                  nom={p.salarie?.nom ?? salarie?.nom}
-                />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-surface-800 truncate">
-                    {p.salarie
-                      ? (p.salarie.id === salarie?.id ? 'Moi' : `${p.salarie.prenom} ${p.salarie.nom}`)
-                      : 'Mon bulletin'}
-                  </p>
-                  <p className="text-xs text-surface-400 font-mono">{formatMonthYear(p.month, p.year)}</p>
-                </div>
-                <Badge className={PAIE_STATUS_COLORS[p.status]}>
-                  {PAIE_STATUS_LABELS[p.status]}
-                </Badge>
-              </div>
+            {recentByType.att_salaire.map(r => (
+              <DocRequestRow key={r.id} request={r} />
             ))}
           </SectionCard>
 
-          {/* RH: pending doc requests needing action — compact action card */}
-          {isRH && rhDocRequests.filter(r => r.status === 'en_attente').length > 0 && (
-            <div className="card border-amber-200 bg-amber-50/30">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="w-8 h-8 rounded-xl bg-amber-100 border border-amber-200 flex items-center justify-center flex-shrink-0">
+          {/* Recent bulletins de paie requests */}
+          <SectionCard
+            title="Bulletins de paie"
+            subtitle="Demandes recentes"
+            linkTo="/documents"
+            loading={docLoading}
+            empty={!docLoading && recentByType.bulletin_paie.length === 0}
+            emptyText="Aucune demande"
+          >
+            {recentByType.bulletin_paie.map(r => (
+              <DocRequestRow key={r.id} request={r} />
+            ))}
+          </SectionCard>
+
+          {/* RH urgent alert */}
+          {isRH && totalPendingDocs > 0 && !showDocBreakdown && (
+            <div
+              className="card border-amber-200 bg-amber-50/30 cursor-pointer hover:shadow-card-lg transition-all"
+              onClick={() => setShowDocBreakdown(true)}
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-amber-100 border border-amber-200 flex items-center justify-center flex-shrink-0">
                   <svg className="w-4 h-4 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
                   </svg>
                 </div>
-                <div>
+                <div className="flex-1">
                   <p className="text-sm font-semibold text-amber-800">
-                    {rhDocRequests.filter(r => r.status === 'en_attente').length} demande{rhDocRequests.filter(r => r.status === 'en_attente').length > 1 ? 's' : ''} à traiter
+                    {totalPendingDocs} demande{totalPendingDocs > 1 ? 's' : ''} a traiter
                   </p>
-                  <p className="text-xs text-amber-600">Des salariés attendent une réponse</p>
+                  <p className="text-xs text-amber-600">Cliquer pour voir le detail par type</p>
                 </div>
-                <a href="/documents" className="ml-auto text-xs text-amber-700 hover:underline font-semibold flex-shrink-0">
-                  Traiter →
-                </a>
-              </div>
-              <div className="space-y-0 divide-y divide-amber-100">
-                {rhDocRequests
-                  .filter(r => r.status === 'en_attente')
-                  .slice(0, 3)
-                  .map(r => {
-                    const nom = r.salarie ? `${r.salarie.prenom} ${r.salarie.nom}` : '—'
-                    return (
-                      <div key={r.id} className="flex items-center gap-2.5 py-2">
-                        <span className="text-base">{DOC_DEMANDE_ICONS[r.demande] ?? '📄'}</span>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-medium text-surface-700 truncate">{nom}</p>
-                          <p className="text-[10px] text-surface-400">{DOC_DEMANDE_LABELS[r.demande]}</p>
-                        </div>
-                        <span className="text-[10px] text-surface-400 flex-shrink-0">
-                          {formatDateTime(r.createdAt ?? r.created_at)}
-                        </span>
-                      </div>
-                    )
-                  })}
+                <svg className="w-4 h-4 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                </svg>
               </div>
             </div>
           )}

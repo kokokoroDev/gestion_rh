@@ -203,9 +203,6 @@ export default function Documents() {
             offset: page * LIMIT,
             ...(filters.status  ? { status:  filters.status  } : {}),
             ...(filters.demande ? { demande: filters.demande } : {}),
-            // ── KEY FIX: always scope "my" tab to the current user ──
-            // Non-RH users are scoped server-side automatically.
-            // RH users need an explicit sal_id so they only see their own.
             ...(tab === 'my' ? { sal_id: salarie?.id } : {}),
         }))
     }, [dispatch, filters, page, tab, salarie?.id])
@@ -438,4 +435,4 @@ export default function Documents() {
             />
         </div>
     )
-}   
+}

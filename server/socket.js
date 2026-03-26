@@ -6,8 +6,8 @@ const { Salarie, SalarieRoleModule, Role } = models;
 
 // ─── Reusable include that hydrates role names ────────────────────────────────
 const roleModulesInclude = {
-    model:   SalarieRoleModule,
-    as:      'roleModules',
+    model: SalarieRoleModule,
+    as: 'roleModules',
     include: [{ model: Role, as: 'roleRef', attributes: ['name'] }],
 };
 
@@ -31,7 +31,7 @@ export const socketAuthMiddleware = async (socket, next) => {
         // Lightweight active-user check + current role fetch.
         const salarie = await Salarie.findByPk(decoded.id, {
             attributes: ['id', 'status'],
-            include:    [roleModulesInclude],
+            include: [roleModulesInclude],
         });
 
         if (!salarie || salarie.status === 'inactive') {
@@ -39,7 +39,7 @@ export const socketAuthMiddleware = async (socket, next) => {
         }
 
         socket.salarie = {
-            id:    salarie.id,
+            id: salarie.id,
             roles: buildRolesPayload(salarie.roleModules),
         };
 
@@ -70,10 +70,15 @@ export const socketRoomMiddleware = (socket, next) => {
 
         // Role-specific rooms — iterate all assignments.
         const joinedManagerRoom = false;
+        let hasTeamLead = false
         let hasManager = false;
-        let hasRH      = false;
+        let hasRH = false;
 
         for (const { role } of roles) {
+            if (role === 'team_lead' && !hasTeamLead) {
+                socket.join(`team_lead-${id}`);
+                hasTeamLead = true;
+            }
             if (role === 'manager' && !hasManager) {
                 socket.join(`manager-${id}`);
                 hasManager = true;
@@ -89,7 +94,8 @@ export const socketRoomMiddleware = (socket, next) => {
         console.log(
             `✓ ${primary.toUpperCase()} connected [${id}] — rooms: salarie-${id}` +
             (hasManager ? `, manager-${id}` : '') +
-            (hasRH      ? `, rh-${id}, rh-all` : '')
+            (hasTeamLead ? `, team_lead-${id}` : '') +
+            (hasRH ? `, rh-${id}, rh-all` : '')
         );
 
         next();
@@ -124,6 +130,9 @@ export const notifySalarie = (io, sal_id, data) =>
 
 export const notifyManager = (io, manager_id, data) =>
     io.to(`manager-${manager_id}`).emit('notification-received', data);
+
+export const notifyTeamLead = (io, lead_id, data) =>
+    io.to(`manager-${lead_id}`).emit('notification-received', data);
 
 export const notifyRH = (io, rh_id, data) =>
     io.to(`rh-${rh_id}`).emit('notification-received', data);

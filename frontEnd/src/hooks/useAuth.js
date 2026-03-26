@@ -5,6 +5,7 @@ import {
     selectRole,
     selectIsRH,
     selectIsManager,
+    selectIsTeamLead,
     selectModuleId,
     selectAuth,
     logout,
@@ -19,7 +20,8 @@ export const useAuth = () => {
     const role = useSelector(selectRole)
     const isRH = useSelector(selectIsRH)
     const isManager = useSelector(selectIsManager)
-    const moduleId = useSelector(selectModuleId)   // first module_id
+    const isTeamlead = useSelector(selectIsTeamLead)
+    const moduleId = useSelector(selectIsTeamLead)
 
     const handleLogout = () => {
         dispatch(logout())
@@ -31,12 +33,13 @@ export const useAuth = () => {
         role,
         isRH,
         isManager,
+        isTeamlead,
         isFonctionnaire: role === 'fonctionnaire',
         isAuthenticated: !!auth.token,
         loading: auth.loading,
         error: auth.error,
-        moduleId,                                    // convenience: first module_id
-        moduleIds: getModuleIds(salarie),     // all module_ids
+        moduleId,                                    
+        moduleIds: getModuleIds(salarie),   
         logout: handleLogout,
     }
 }

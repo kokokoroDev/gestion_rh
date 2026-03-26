@@ -50,7 +50,7 @@ function RoleModuleBadges({ roleModules = [] }) {
 export default function Salaries() {
     const dispatch = useDispatch()
     const toast    = useToast()
-    const { isRH, isManager, isFonctionnaire, salarie } = useAuth()
+    const { isRH, isManager, isTeamLead , isFonctionnaire, salarie } = useAuth()
 
     const salaries = useSelector(selectSalaries)
     const total    = useSelector(selectSalarieTotal)
