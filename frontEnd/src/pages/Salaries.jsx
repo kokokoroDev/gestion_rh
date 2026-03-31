@@ -11,17 +11,9 @@ import Badge from '@/components/ui/Badge'
 import Spinner from '@/components/ui/Spinner'
 import SalarieForm from '@/components/salaries/SalarieForm'
 import SalarieDetailModal from '@/components/salaries/SalarieDetailModal'
-import { getInitials, ROLE_LABELS, ROLE_COLORS, formatDate } from '@/utils/formatters'
+import { ROLE_LABELS, ROLE_COLORS, formatDate } from '@/utils/formatters'
 
 const LIMIT = 10
-
-function Avatar({ prenom = '', nom = '' }) {
-    return (
-        <div className="w-9 h-9 rounded-xl bg-azure-100 flex items-center justify-center text-xs font-bold text-azure-700 flex-shrink-0">
-            {getInitials(prenom, nom)}
-        </div>
-    )
-}
 
 function RoleModuleBadges({ roleModules = [] }) {
     if (!roleModules.length) return null
@@ -224,8 +216,7 @@ export default function Salaries() {
                     {displaySalaries.map((s) => (
                         <div key={s.id} className="card hover:shadow-card-lg transition-shadow cursor-pointer group"
                             onClick={() => setDetailId(s.id)}>
-                            <div className="flex items-start gap-3">
-                                <Avatar prenom={s.prenom} nom={s.nom} />
+                            <div className="flex items-start gap-3">
                                 <div className="flex-1 min-w-0">
                                     <p className="font-semibold text-surface-900 truncate group-hover:text-azure-700 transition-colors">
                                         {s.prenom} {s.nom}

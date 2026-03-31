@@ -13,7 +13,7 @@ const TeletravailEntry = sequelizeCon.define(
         schedule_id: {
             type: DataTypes.UUID,
             allowNull: false,
-            references: { model: 'TeletravailSchedule', key: 'id' },
+            references: { model: 'teletravail_schedules', key: 'id' },
             onDelete: 'CASCADE',
         },
         salarie_id: {

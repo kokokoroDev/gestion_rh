@@ -10,12 +10,17 @@ import DocumentResponses from "./doc_responses.js";
 import NoteService       from "./note_service.js";
 import TeletravailSchedule from "./teletravail_schedule.js";
 import TeletravailEntry from "./teletravail_entry.js";
+import Client from "./client.js";
+import OrdreMission from "./ordre_mission.js";
+import NoteFrais from "./note_frais.js";
+import NoteFraisLine from "./note_frais_line.js";
 import sequelizeCon      from "../config/sequelize.js";
 
 const models = {
     Salarie, DocumentRequest, DocumentResponses,
     Role, SalarieRoleModule, Conge, CongeDay,
-    Module, Notification, NoteService,TeletravailSchedule, TeletravailEntry
+    Module, Notification, NoteService, TeletravailSchedule, TeletravailEntry,
+    Client, OrdreMission, NoteFrais, NoteFraisLine
 };
 
 Object.values(models).forEach(model => {

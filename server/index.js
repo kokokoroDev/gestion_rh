@@ -29,8 +29,7 @@ app.get('/migrate', async (req, res) => {
 });
 
 // ── Cron jobs ────────────────────────────────────────────────────────────────
-startCongeCrons();  // 1st of month 05:00 — +1.5 balance; Mon–Fri 08:00 — stale-congé alerts
-
+startCongeCrons(); 
 // ── Start ────────────────────────────────────────────────────────────────────
 httpServer.listen(3000, () => {
     console.log('Server listening on port 3000');

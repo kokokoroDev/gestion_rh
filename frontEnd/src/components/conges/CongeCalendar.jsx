@@ -7,13 +7,16 @@ import { CONGE_TYPE_LABELS, formatDate } from '@/utils/formatters'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+const toLocalDateInputValue = (date) =>
+    `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+
 const firstDayOfMonth = () => {
     const d = new Date()
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`
 }
 const lastDayOfMonth = () => {
     const d = new Date()
-    return new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString().split('T')[0]
+    return toLocalDateInputValue(new Date(d.getFullYear(), d.getMonth() + 1, 0))
 }
 
 const FR_DAYS_SHORT   = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam']

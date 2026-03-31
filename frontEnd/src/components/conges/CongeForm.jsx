@@ -32,6 +32,8 @@ const DAY_TYPES = [
 
 const FR_DAYS   = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam']
 const FR_MONTHS = ['jan', 'fév', 'mar', 'avr', 'mai', 'jun', 'jul', 'aoû', 'sep', 'oct', 'nov', 'déc']
+const toLocalDateInputValue = (date) =>
+    `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -43,27 +45,27 @@ const isWeekend = (dateStr) => {
 }
 
 /**
- * If dateStr is a weekend, advance to the next Monday.
+ * If dateStr is a weekend, roll it back to the previous Friday.
  * Otherwise return dateStr unchanged.
  */
 const clampToWeekday = (dateStr) => {
     if (!dateStr) return dateStr
     const d = new Date(dateStr + 'T00:00:00')
     const dow = d.getDay()
-    if (dow === 6) d.setDate(d.getDate() + 2) // Sat → Mon
-    if (dow === 0) d.setDate(d.getDate() + 1) // Sun → Mon
-    return d.toISOString().split('T')[0]
+    if (dow === 6) d.setDate(d.getDate() - 1) // Sat -> Fri
+    if (dow === 0) d.setDate(d.getDate() - 2) // Sun -> Fri
+    return toLocalDateInputValue(d)
 }
 
 /** Minimum allowed start date: today + 15 days, clamped to weekday */
 const getMinDate = () => {
     const d = new Date()
     d.setDate(d.getDate() + 15)
-    // advance to next weekday if needed
+    // roll back to Friday if the computed informational date lands on a weekend
     const dow = d.getDay()
-    if (dow === 6) d.setDate(d.getDate() + 2)
-    if (dow === 0) d.setDate(d.getDate() + 1)
-    return d.toISOString().split('T')[0]
+    if (dow === 6) d.setDate(d.getDate() - 1)
+    if (dow === 0) d.setDate(d.getDate() - 2)
+    return toLocalDateInputValue(d)
 }
 
 /** Generate all weekday (Mon–Fri) dates between from and to inclusive */
@@ -75,7 +77,7 @@ const generateWorkdays = (from, to) => {
     while (curr <= end) {
         const dow = curr.getDay()
         if (dow !== 0 && dow !== 6) {
-            result.push({ date: curr.toISOString().split('T')[0], type: 'full' })
+            result.push({ date: toLocalDateInputValue(curr), type: 'full' })
         }
         curr.setDate(curr.getDate() + 1)
     }
@@ -288,7 +290,6 @@ export default function CongeForm({ open, onClose }) {
                                 type="date"
                                 className={`input-base ${isWeekend(form.date_debut) ? 'border-amber-400 bg-amber-50' : ''}`}
                                 value={form.date_debut}
-                                min={minDate}
                                 onChange={(e) => handleDebutChange(e.target.value)}
                                 required
                             />
@@ -300,7 +301,7 @@ export default function CongeForm({ open, onClose }) {
                                 type="date"
                                 className={`input-base ${isWeekend(form.date_fin) ? 'border-amber-400 bg-amber-50' : ''}`}
                                 value={form.date_fin}
-                                min={form.date_debut || minDate}
+                                min={form.date_debut || undefined}
                                 onChange={(e) => handleFinChange(e.target.value)}
                                 required
                             />
@@ -483,3 +484,6 @@ export default function CongeForm({ open, onClose }) {
         </Modal>
     )
 }
+
+
+

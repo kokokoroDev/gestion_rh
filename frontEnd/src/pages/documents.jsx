@@ -16,7 +16,7 @@ import Spinner from '@/components/ui/Spinner'
 import DocumentRequestForm from '@/components/documentRequest/documentRequestForm'
 import DocumentRequestProcessModal from '@/components/documentRequest/Documentrequestprocessmodal'
 import {
-    formatDateTime, getInitials, downloadBlob,
+    formatDateTime, downloadBlob,
     DOC_DEMANDE_LABELS, DOC_DEMANDE_ICONS,
     DOC_STATUS_LABELS, DOC_STATUS_COLORS,
 } from '@/utils/formatters'
@@ -36,14 +36,6 @@ const DEMANDE_OPTIONS = [
     { value: 'att_salaire', label: 'Attestation de salaire' },
     { value: 'bulletin_paie', label: 'Bulletin de paie' },
 ]
-
-function Avatar({ prenom = '', nom = '' }) {
-    return (
-        <div className="w-8 h-8 rounded-full bg-azure-100 flex items-center justify-center text-xs font-semibold text-azure-700 flex-shrink-0">
-            {getInitials(prenom, nom)}
-        </div>
-    )
-}
 
 // ─── Download button ──────────────────────────────────────────────────────────
 function DownloadBtn({ requestId, responseId, fileName, compact = false }) {
@@ -180,7 +172,7 @@ function MyRequestCard({ request, onCancel, cancelling, confirmCancel, setConfir
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
-export default function Documents() {
+export default function Documents({ initialDemande = ''  }) {
     const dispatch = useDispatch()
     const toast    = useToast()
     const { isRH, salarie } = useAuth()
@@ -190,10 +182,10 @@ export default function Documents() {
     const loading    = useSelector(selectDocumentRequestLoading)
     const submitting = useSelector(selectDocumentRequestSubmitting)
 
-    const [tab,           setTab]           = useState('my')
+    const [tab,           setTab]           = useState(() => (initialDemande && isRH ? 'all' : 'my'))
     const [showForm,      setShowForm]      = useState(false)
     const [selected,      setSelected]      = useState(null)
-    const [filters,       setFilters]       = useState({ status: '', demande: '' })
+    const [filters,       setFilters]       = useState({ status: '', demande: initialDemande })
     const [page,          setPage]          = useState(0)
     const [confirmCancel, setConfirmCancel] = useState(null)
 
@@ -208,6 +200,13 @@ export default function Documents() {
     }, [dispatch, filters, page, tab, salarie?.id])
 
     useEffect(() => { load() }, [load])
+
+    useEffect(() => {
+        if (!initialDemande) return
+        setFilters((prev) => ({ ...prev, demande: initialDemande }))
+        setTab(isRH ? 'all' : 'my')
+        setPage(0)
+    }, [initialDemande, isRH])
 
     const switchTab = (key) => { setTab(key); setPage(0) }
 
@@ -336,7 +335,7 @@ export default function Documents() {
                                             <tr key={r.id} className="hover:bg-surface-50 transition-colors">
                                                 <td className="px-5 py-3.5">
                                                     <div className="flex items-center gap-2.5">
-                                                        <Avatar prenom={r.salarie?.prenom} nom={r.salarie?.nom} />
+
                                                         <div>
                                                             <p className="font-medium text-surface-800">
                                                                 {r.salarie ? `${r.salarie.prenom} ${r.salarie.nom}` : '—'}

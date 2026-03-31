@@ -11,7 +11,6 @@ import {
 const { Conge, CongeDay, Salarie, SalarieRoleModule, Role, Module } = models;
 
 // ─── Min advance days ─────────────────────────────────────────────────────────
-const MIN_ADVANCE_DAYS = 15;
 
 // ─── Shared includes ──────────────────────────────────────────────────────────
 const salarieWithRolesInclude = {
@@ -51,19 +50,24 @@ const buildAccessWhere = (salarieInfo, extraFilters = {}) => {
     const { id: sal_id } = salarieInfo;
     const primaryRole    = getPrimaryRole(salarieInfo);
     const where          = {};
+    const isRhViewer     = isRH(salarieInfo);
 
     if (primaryRole === 'fonctionnaire') {
         where.sal_id = sal_id;
-    } else if (isRH(salarieInfo)) {
+    } else if (isRhViewer) {
         if (extraFilters.sal_id) {
             where.sal_id = extraFilters.sal_id;
-        } else {
-            where.status = extraFilters.status || 'reached';
         }
     }
 
-    if (extraFilters.status && !isRH(salarieInfo))                                where.status     = extraFilters.status;
-    if (extraFilters.status && isRH(salarieInfo) && extraFilters.sal_id)          where.status     = extraFilters.status;
+    if (!isRhViewer && extraFilters.status)                                       where.status     = extraFilters.status;
+    if (isRhViewer) {
+        if (extraFilters.status && extraFilters.status !== 'soumis') {
+            where.status = extraFilters.status;
+        } else {
+            where.status = { [Op.ne]: 'soumis' };
+        }
+    }
     if (extraFilters.type_conge)                                                   where.type_conge = extraFilters.type_conge;
     if (extraFilters.sal_id && isNonRHSupervisor(salarieInfo))                    where.sal_id     = extraFilters.sal_id;
 
@@ -79,6 +83,13 @@ const buildAccessWhere = (salarieInfo, extraFilters = {}) => {
 const sumDays = (days) =>
     days.reduce((sum, d) => sum + (d.is_half_day ? 0.5 : 1), 0);
 
+const toLocalDateValue = (date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+
 const generateDefaultDays = (debut, fin) => {
     const result = [];
     const curr   = new Date(debut);
@@ -87,7 +98,7 @@ const generateDefaultDays = (debut, fin) => {
         const dow = curr.getDay();
         if (dow !== 0 && dow !== 6) {
             result.push({
-                date:        curr.toISOString().split('T')[0],
+                date:        toLocalDateValue(curr),
                 is_half_day: false,
                 half_period: null,
             });
@@ -112,22 +123,10 @@ export const soumettreConge = async (data, salarieId) => {
     const fin   = new Date(date_fin);
     if (isNaN(debut) || isNaN(fin)) throw new Error('Dates invalides');
     if (fin < debut)                throw new Error('La date de fin doit être postérieure à la date de début');
-
-    // ── 15-day advance check ──────────────────────────────────────────────────
-    const minAllowed = new Date();
-    minAllowed.setDate(minAllowed.getDate() + MIN_ADVANCE_DAYS);
-    minAllowed.setHours(0, 0, 0, 0);
-    if (debut < minAllowed) {
-        throw new Error(
-            `La date de début doit être au moins ${MIN_ADVANCE_DAYS} jours à partir d'aujourd'hui ` +
-            `(au plus tôt le ${minAllowed.toLocaleDateString('fr-FR')})`
-        );
-    }
-
-    // ── Build days array ──────────────────────────────────────────────────────
+    // Build days array ──────────────────────────────────────────────────────
     const daysToCreate = (rawDays && rawDays.length > 0)
         ? rawDays.map(d => ({
-            date:        typeof d.date === 'string' ? d.date : new Date(d.date).toISOString().split('T')[0],
+            date:        typeof d.date === 'string' ? d.date : toLocalDateValue(new Date(d.date)),
             is_half_day: d.is_half_day ?? false,
             half_period: d.half_period ?? null,
         }))
@@ -562,3 +561,4 @@ export const getCalendar = async (filters, salarieInfo) => {
 
     return { range: { from: date_from, to: date_to }, modules: Object.values(byModule) };
 };
+

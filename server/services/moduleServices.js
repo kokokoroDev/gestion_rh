@@ -3,6 +3,8 @@ import { Op } from 'sequelize';
 
 const { Module, Salarie, SalarieRoleModule, Role } = models;
 
+const normalizeLibelle = (libelle) => libelle?.trim().toUpperCase() ?? '';
+
 export const getAllModules = async (options = {}) =>
     Module.findAll({ order: [['libelle', 'ASC']], ...options });
 
@@ -17,35 +19,44 @@ export const checkManager = async (id) => {
 
 export const getModuleById = async (id) => {
     const module = await Module.findByPk(id);
-    if (!module) throw new Error('Module non trouvé');
+    if (!module) throw new Error('Module non trouve');
     return module;
 };
 
 export const createModule = async (data) => {
-    const { libelle } = data;
-    if (!libelle || libelle.length !== 2) throw new Error('Le libellé doit être composé de 2 caractères');
+    const libelle = normalizeLibelle(data?.libelle);
+    if (!libelle) throw new Error('Le libelle est requis');
+    if (libelle.length > 50) throw new Error('Le libelle ne doit pas depasser 50 caracteres');
+
     const existing = await Module.findOne({ where: { libelle } });
-    if (existing) throw new Error('Un module avec ce libellé existe déjà');
-    return Module.create(data);
+    if (existing) throw new Error('Un module avec ce libelle existe deja');
+
+    return Module.create({ ...data, libelle });
 };
 
 export const updateModule = async (id, data) => {
     const module = await Module.findByPk(id);
-    if (!module) throw new Error('Module non trouvé');
-    if (data.libelle) {
-        if (data.libelle.length !== 2) throw new Error('Le libellé doit être composé de 2 caractères');
-        const existing = await Module.findOne({ where: { libelle: data.libelle, id: { [Op.ne]: id } } });
-        if (existing) throw new Error('Un module avec ce libellé existe déjà');
+    if (!module) throw new Error('Module non trouve');
+
+    if (data.libelle !== undefined) {
+        const libelle = normalizeLibelle(data.libelle);
+        if (!libelle) throw new Error('Le libelle est requis');
+        if (libelle.length > 50) throw new Error('Le libelle ne doit pas depasser 50 caracteres');
+
+        const existing = await Module.findOne({ where: { libelle, id: { [Op.ne]: id } } });
+        if (existing) throw new Error('Un module avec ce libelle existe deja');
+        data.libelle = libelle;
     }
+
     await module.update(data);
     return module;
 };
 
 export const deleteModule = async (id) => {
     const module = await Module.findByPk(id);
-    if (!module) throw new Error('Module non trouvé');
+    if (!module) throw new Error('Module non trouve');
     const count = await SalarieRoleModule.count({ where: { module_id: id } });
-    if (count > 0) throw new Error('Impossible de supprimer ce module car des salariés y sont rattachés');
+    if (count > 0) throw new Error('Impossible de supprimer ce module car des salaries y sont rattaches');
     await module.destroy();
     return true;
-};  
+};

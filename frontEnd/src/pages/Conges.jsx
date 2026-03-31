@@ -226,17 +226,7 @@ function MyCongeCard({ conge, onCancel, cancelling, confirmCancel, setConfirmCan
   )
 }
 
-// ─── Avatar ────────────────────────────────────────────────────────────────────
-
-function Avatar({ prenom = '', nom = '' }) {
-  return (
-    <div className="w-8 h-8 rounded-full bg-azure-100 flex items-center justify-center flex-shrink-0 text-xs font-semibold text-azure-700">
-      {getInitials(prenom, nom)}
-    </div>
-  )
-}
-
-// ─── Page ──────────────────────────────────────────────────────────────────────
+// ??? Page ?????????????????????????????????????????????????????????????????????? ──────────────────────────────────────────────────────────────────────
 
 export default function Conges({ to = 'my' }) {
   const dispatch = useDispatch()
@@ -256,11 +246,14 @@ export default function Conges({ to = 'my' }) {
   const [myFilters, setMyFilters] = useState({ status: '', type_conge: '' })
 
   const isSupervisor = isRH || isManager || isTeamLead
+  const availableStatuses = isRH
+    ? STATUSES.filter((status) => status.value !== 'soumis')
+    : STATUSES
 
   const [tab,           setTab]           = useState(to)
   const [showForm,      setShowForm]      = useState(false)
   const [selected,      setSelected]      = useState(null)
-  const [filters,       setFilters]       = useState({ status: isRH ? 'reached' : '', type_conge: '' })
+  const [filters,       setFilters]       = useState({ status: '', type_conge: '' })
   const [page,          setPage]          = useState(0)
   const [confirmCancel, setConfirmCancel] = useState(null)
 
@@ -282,15 +275,13 @@ export default function Conges({ to = 'my' }) {
     const params = {
       limit:  LIMIT,
       offset: myPage * LIMIT,
+      sal_id: salarie?.id,
       ...(myFilters.status     ? { status:     myFilters.status     } : {}),
       ...(myFilters.type_conge ? { type_conge: myFilters.type_conge } : {}),
     }
     congeApi.getAll(params)
-      .then((r) => {
-        const all  = r.data?.data ?? []
-        const mine = all.filter(c => c.sal_id === salarie?.id)
-        setMyConges(mine)
-        setMyTotal(mine.length)
+      .then((r) => {        setMyConges(r.data?.data ?? [])
+        setMyTotal(r.data?.total ?? 0)
       })
       .catch(() => setMyConges([]))
       .finally(() => setMyLoading(false))
@@ -360,7 +351,7 @@ export default function Conges({ to = 'my' }) {
           <div className="card flex flex-wrap gap-3">
             <select className="input-base w-48" value={myFilters.status}
               onChange={(e) => { setMyFilters(f => ({ ...f, status: e.target.value })); setMyPage(0) }}>
-              {STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+              {availableStatuses.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
             </select>
             <select className="input-base w-48" value={myFilters.type_conge}
               onChange={(e) => { setMyFilters(f => ({ ...f, type_conge: e.target.value })); setMyPage(0) }}>
@@ -437,7 +428,7 @@ export default function Conges({ to = 'my' }) {
           <div className="card flex flex-wrap gap-3">
             <select className="input-base w-48" value={filters.status}
               onChange={(e) => { setFilters(f => ({ ...f, status: e.target.value })); setPage(0) }}>
-              {STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+                {availableStatuses.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
             </select>
             <select className="input-base w-48" value={filters.type_conge}
               onChange={(e) => { setFilters(f => ({ ...f, type_conge: e.target.value })); setPage(0) }}>
@@ -446,7 +437,7 @@ export default function Conges({ to = 'my' }) {
                 <option key={v} value={v}>{l}</option>
               ))}
             </select>
-            <button onClick={() => { setFilters({ status: isRH ? 'reached' : '', type_conge: '' }); setPage(0) }} className="btn-ghost text-sm">
+            <button onClick={() => { setFilters({ status: '', type_conge: '' }); setPage(0) }} className="btn-ghost text-sm">
               Réinitialiser
             </button>
             <div className="ml-auto flex items-center gap-2 text-sm text-surface-400">
@@ -484,8 +475,7 @@ export default function Conges({ to = 'my' }) {
                       return (
                         <tr key={conge.id} className="hover:bg-surface-50 transition-colors">
                           <td className="px-5 py-3.5">
-                            <div className="flex items-center gap-2.5">
-                              <Avatar prenom={conge.salarie?.prenom} nom={conge.salarie?.nom} />
+                            <div className="flex items-center gap-2.5">
                               <div>
                                 <p className="font-medium text-surface-800">
                                   {conge.salarie ? `${conge.salarie.prenom} ${conge.salarie.nom}` : '—'}

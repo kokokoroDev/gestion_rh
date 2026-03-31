@@ -14,7 +14,14 @@ export const formatDateShort = (d) =>
     d ? new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(d)) : '—'
 
 export const formatDateTime = (d) =>
-    d ? new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(d)) : '—'
+    d ? new Intl.DateTimeFormat('fr-FR', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+    }).format(new Date(d)) : '—'
 
 export const MONTHS_FR = [
     'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
@@ -102,3 +109,4 @@ export const downloadBlob = (blob, filename) => {
     a.click()
     URL.revokeObjectURL(url)
 }
+

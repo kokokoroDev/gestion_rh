@@ -11,7 +11,7 @@ const Module = sequelizeCon.define(
             primaryKey:   true
         },
         libelle: {
-            type:      DataTypes.CHAR(2),
+            type:      DataTypes.STRING(50),
             allowNull: false,
         },
         description: {

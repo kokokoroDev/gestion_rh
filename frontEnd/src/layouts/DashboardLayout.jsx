@@ -11,6 +11,8 @@ const PAGE_TITLES = {
     '/documents': 'Demandes de documents',
     '/notes-service': 'Notes de service',
     '/teletravail': 'Planning de teletravail',
+    '/ordre-mission': 'Ordres de mission',
+    '/note-frais': 'Notes de frais',
 }
 
 export default function DashboardLayout() {

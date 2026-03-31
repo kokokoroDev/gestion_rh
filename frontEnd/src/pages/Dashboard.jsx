@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
+import { Link } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import { fetchConges } from '@/store/slices/congeSlice'
 import { fetchSalaries } from '@/store/slices/salarieSlice'
@@ -11,7 +12,7 @@ import StatCard from '@/components/dashboard/StatCard'
 import Badge from '@/components/ui/Badge'
 import Spinner from '@/components/ui/Spinner'
 import {
-  formatDate, formatDateTime, getInitials,
+  formatDate, formatDateTime,
   CONGE_STATUS_LABELS, CONGE_STATUS_COLORS,
   CONGE_TYPE_LABELS,
   DOC_DEMANDE_LABELS, DOC_DEMANDE_ICONS,
@@ -93,14 +94,6 @@ function CongeProgressBar({ status }) {
   )
 }
 
-function Avatar({ prenom = '', nom = '' }) {
-  return (
-    <div className="w-8 h-8 rounded-full bg-azure-100 flex items-center justify-center flex-shrink-0">
-      <span className="text-xs font-semibold text-azure-700">{getInitials(prenom, nom)}</span>
-    </div>
-  )
-}
-
 function MyCongeRow({ conge }) {
   return (
     <div className="py-3 border-b border-surface-50 last:border-0">
@@ -131,7 +124,7 @@ function MyCongeRow({ conge }) {
 function TeamCongeRow({ conge }) {
   return (
     <div className="flex items-center gap-3 py-2.5 border-b border-surface-50 last:border-0">
-      <Avatar prenom={conge.salarie?.prenom} nom={conge.salarie?.nom} />
+
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium text-surface-800 truncate">
           {conge.salarie ? `${conge.salarie.prenom} ${conge.salarie.nom}` : '—'}
@@ -196,8 +189,9 @@ function DocTypeBreakdownCard({ counts, onClose }) {
         {Object.entries(DOC_DEMANDE_LABELS).map(([key, label]) => {
           const c = DOC_TYPE_COLORS[key]
           const count = counts[key] ?? 0
+          const to = label === 'Attestation de travail' ? 'attestation-travail' : label === 'Attestation de salaire' ? 'attestation-salaire' : 'bulletin-paie' 
           return (
-            <a key={key} href="/documents" className={`group flex items-center gap-3 p-4 rounded-xl border ${c.bg} ${c.border} hover:shadow-card transition-all cursor-pointer`}>
+            <Link key={key} to={`/documents/${to}`} className={`group flex items-center gap-3 p-4 rounded-xl border ${c.bg} ${c.border} hover:shadow-card transition-all cursor-pointer`}>
               <span className="text-2xl">{DOC_DEMANDE_ICONS[key]}</span>
               <div className="flex-1 min-w-0">
                 <p className={`text-xs font-semibold ${c.text} truncate`}>{label}</p>
@@ -206,7 +200,7 @@ function DocTypeBreakdownCard({ counts, onClose }) {
                   <span className={`text-xs ${c.text} opacity-70`}>en attente</span>
                 </div>
               </div>
-            </a>
+            </Link>
           )
         })}
       </div>
@@ -223,7 +217,7 @@ function SectionCard({ title, subtitle, linkTo, linkLabel = 'Voir tout →', loa
           {subtitle && <p className="text-xs text-surface-400 mt-0.5">{subtitle}</p>}
         </div>
         {linkTo && (
-          <a href={linkTo} className="text-xs text-azure-600 hover:underline font-medium">{linkLabel}</a>
+          <Link to={linkTo} className="text-xs text-azure-600 hover:underline font-medium">{linkLabel}</Link>
         )}
       </div>
       {loading ? (
@@ -416,7 +410,7 @@ export default function Dashboard() {
             <SectionCard
               title="Demandes de congé en attente"
               subtitle={isRH ? 'Transmises au RH' : 'En attente de traitement'}
-              linkTo="/conges"
+              linkTo="/conges/team_conge"
               loading={false}
               empty={pendingTeamConges.length === 0}
               emptyText="Aucune demande en attente"
@@ -458,7 +452,7 @@ export default function Dashboard() {
             </SectionCard>
           )}
 
-          <SectionCard title="Attestations de travail" subtitle="Demandes récentes" linkTo="/documents"
+          <SectionCard title="Attestations de travail" subtitle="Demandes récentes" linkTo="/documents/attestation-travail"
             loading={docLoading} empty={!docLoading && recentByType.att_travail.length === 0} emptyText="Aucune demande">
             {recentByType.att_travail.map(r => <DocRequestRow key={r.id} request={r} />)}
           </SectionCard>
@@ -467,12 +461,12 @@ export default function Dashboard() {
         {/* RIGHT COLUMN */}
         <div className="space-y-5">
 
-          <SectionCard title="Attestations de salaire" subtitle="Demandes récentes" linkTo="/documents"
+          <SectionCard title="Attestations de salaire" subtitle="Demandes récentes" linkTo="/documents/attestation-salaire"
             loading={docLoading} empty={!docLoading && recentByType.att_salaire.length === 0} emptyText="Aucune demande">
             {recentByType.att_salaire.map(r => <DocRequestRow key={r.id} request={r} />)}
           </SectionCard>
 
-          <SectionCard title="Bulletins de paie" subtitle="Demandes récentes" linkTo="/documents"
+          <SectionCard title="Bulletins de paie" subtitle="Demandes récentes" linkTo="/documents/bulletin-paie"
             loading={docLoading} empty={!docLoading && recentByType.bulletin_paie.length === 0} emptyText="Aucune demande">
             {recentByType.bulletin_paie.map(r => <DocRequestRow key={r.id} request={r} />)}
           </SectionCard>

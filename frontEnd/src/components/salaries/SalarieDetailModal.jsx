@@ -67,11 +67,8 @@ export default function SalarieDetailModal({ salarieId, open, onClose }) {
       ) : (
         <div className="space-y-6 max-h-[70vh] overflow-y-auto pr-1">
 
-          {/* Avatar + identity */}
-          <div className="flex items-center gap-4 p-4 bg-surface-50 rounded-xl">
-            <div className="w-14 h-14 rounded-2xl bg-azure-100 flex items-center justify-center text-xl font-bold text-azure-700">
-              {getInitials(salarie.prenom, salarie.nom)}
-            </div>
+          {/* Identity */}
+          <div className="flex items-center gap-4 p-4 bg-surface-50 rounded-xl">
             <div className="flex-1">
               <h3 className="text-lg font-semibold text-surface-900">
                 {salarie.prenom} {salarie.nom}
