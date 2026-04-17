@@ -3,8 +3,10 @@ import { useDispatch, useSelector } from 'react-redux'
 import { useNavigate } from 'react-router-dom'
 import { loginThunk, selectAuth, clearError } from '@/store/slices/authSlice'
 import Spinner from '@/components/ui/Spinner'
+import usePageTitle from '@/hooks/usePageTitle'
 
 export default function Login() {
+  usePageTitle('Skatys - Login')
   const dispatch  = useDispatch()
   const navigate  = useNavigate()
   const { loading, error } = useSelector(selectAuth)

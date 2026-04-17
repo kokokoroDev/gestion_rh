@@ -5,6 +5,7 @@ import { noteServiceApi } from '@/api/noteService.api'
 import Spinner from '@/components/ui/Spinner'
 import Modal from '@/components/ui/Modal'
 import { formatDateTime, downloadBlob } from '@/utils/formatters'
+import usePageTitle from '@/hooks/usePageTitle'
 
 const LIMIT = 12
 
@@ -399,6 +400,7 @@ function EmptyState({ isRH, onUpload }) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function NoteService() {
+    usePageTitle('Skatys - Note de Service')
     const { isRH } = useAuth()
     const toast    = useToast()
 

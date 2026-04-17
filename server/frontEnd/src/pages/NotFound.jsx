@@ -1,6 +1,8 @@
 import { useNavigate } from 'react-router-dom'
+import usePageTitle from '@/hooks/usePageTitle'
 
 export default function NotFound() {
+  usePageTitle('Skatys - Not Found')
   const navigate = useNavigate()
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-surface-50 text-center p-8">
